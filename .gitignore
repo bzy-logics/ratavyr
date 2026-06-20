@@ -1,0 +1,8 @@
+# Contract materialised by scripts/generate.sh
+/.contract/
+# Binaries
+/ratavyr
+/ratavyr.exe
+*.exe
+*.test
+*.out

@@ -1,0 +1,3 @@
+# LF everywhere: gofmt output, bash scripts and the generated code checked by
+# scripts/check-contract.sh must not be converted to CRLF on Windows.
+* text=auto eol=lf
