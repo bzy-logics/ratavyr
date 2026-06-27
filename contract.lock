@@ -1,0 +1,8 @@
+# Pinned engine API contract. Generated bindings in gen/ are produced from
+# exactly this file by scripts/generate.sh. Update all fields together.
+repo=github.com/bzyfuzy/motioncore
+tag=engine-api/v1.0.1
+commit=755a680858408f89350f2f630f56be3fe09fdf92
+path=crates/engine-api/proto/motioncore/engine/v1/engine.proto
+import_path=motioncore/engine/v1/engine.proto
+sha256=6693a7c4670bf185d2507001b4c270a6a8d9a6bada45c058675716976d5760aa
