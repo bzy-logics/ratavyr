@@ -14,11 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
 	"github.com/bzyfuzy/ratavyr/internal/api"
+	"github.com/bzyfuzy/ratavyr/internal/audit"
+	"github.com/bzyfuzy/ratavyr/internal/auth"
 	"github.com/bzyfuzy/ratavyr/internal/engine"
 	"github.com/bzyfuzy/ratavyr/internal/engine/enginetest"
+	"github.com/coder/websocket"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 )
@@ -35,6 +37,11 @@ type setupOpts struct {
 	apiVersion string // engine api_version (default 1.0.0)
 	token      string
 	webDir     string
+	tokens     auth.Tokens
+	hosts      []string
+	rate       float64
+	burst      float64
+	audit      *audit.Logger
 }
 
 func setup(t *testing.T, o setupOpts) *env {
@@ -59,7 +66,10 @@ func setup(t *testing.T, o setupOpts) *env {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { eng.Run(ctx); close(done) }()
-	srv := httptest.NewServer(api.New(api.Options{Engine: eng, Token: o.token, WebDir: o.webDir}))
+	srv := httptest.NewServer(api.New(api.Options{
+		Engine: eng, Token: o.token, Tokens: o.tokens, WebDir: o.webDir, Audit: o.audit,
+		OriginPatterns: []string{"localhost:5173"}, AllowedHosts: o.hosts, RateLimit: o.rate, RateBurst: o.burst,
+	}))
 	t.Cleanup(func() { srv.Close(); cancel(); <-done; eng.Close() })
 	if !o.noEngine && o.apiVersion == "" {
 		deadline := time.Now().Add(5 * time.Second)
@@ -241,7 +251,7 @@ func TestHealthAndInfo(t *testing.T) {
 	assertJSON(t, "health", b, `{"status":"ok","engine":{"connected":true}}`)
 	_, b = do(t, "GET", e.srv.URL+"/api/info", "")
 	assertJSON(t, "info", b, `{"server_version":"`+api.ServerVersion+`","auth_required":false,
-	 "engine":{"api_version":"1.0.0","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"1","fault_injection_enabled":false}}`)
+	 "engine":{"api_version":"1.0.0","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"1","fault_injection_enabled":false},"engine_error":null}`)
 }
 
 func TestCommands(t *testing.T) {

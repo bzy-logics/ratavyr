@@ -9,7 +9,16 @@ import (
 
 	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
 	"github.com/bzyfuzy/ratavyr/internal/api/rest"
+	"github.com/bzyfuzy/ratavyr/internal/audit"
+	"github.com/bzyfuzy/ratavyr/internal/auth"
 	"github.com/bzyfuzy/ratavyr/internal/engine"
+)
+
+// Minimum roles: building only compiles in-repo board code; flashing
+// replaces the firmware on a machine and is admin only.
+const (
+	BuildRole = auth.Operator
+	FlashRole = auth.Admin
 )
 
 // Handler serves firmware targets and build/flash jobs.
@@ -23,8 +32,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/firmware/targets", h.targets)
 	mux.HandleFunc("GET /api/firmware/jobs", h.jobs)
 	mux.HandleFunc("GET /api/firmware/jobs/{id}", h.job)
-	mux.HandleFunc("POST /api/firmware/builds", h.build)
-	mux.HandleFunc("POST /api/firmware/flashes", h.flash)
+	mux.HandleFunc("POST /api/firmware/builds", auth.Require(BuildRole, h.build))
+	mux.HandleFunc("POST /api/firmware/flashes", auth.Require(FlashRole, h.flash))
 }
 
 func (h *Handler) targets(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +81,7 @@ func (h *Handler) build(w http.ResponseWriter, r *http.Request) {
 	if body.MCU != nil {
 		req.Mcu = *body.MCU
 	}
+	audit.Note(r.Context(), "mcu", req.Mcu)
 	j, err := engine.Call(r.Context(), h.Engine, h.Engine.Firmware.StartBuild, req)
 	if err != nil {
 		rest.WriteEngineError(w, h.Log, "StartBuild", err)
@@ -96,6 +106,7 @@ func (h *Handler) flash(w http.ResponseWriter, r *http.Request) {
 		rest.BadRequest(w, `flashing requires "confirm": true (drives must be powered off)`)
 		return
 	}
+	audit.Note(r.Context(), "build_job_id", *body.BuildJobID)
 	j, err := engine.Call(r.Context(), h.Engine, h.Engine.Firmware.StartFlash,
 		&enginev1.StartFlashRequest{BuildJobId: *body.BuildJobID, Confirm: true})
 	if err != nil {

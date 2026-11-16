@@ -77,6 +77,7 @@ type Client struct {
 	connected    bool                 // handshake done and event stream live
 	info         *enginev1.EngineInfo // from the handshake, nil while disconnected
 	incompatible error                // last handshake refused for version mismatch
+	lastErr      error                // why the last session attempt failed or ended
 	latest       *enginev1.Telemetry  // nil while disconnected
 	subs         map[*subscriber]struct{}
 }
@@ -168,6 +169,20 @@ func (c *Client) Info() *enginev1.EngineInfo {
 	return c.info
 }
 
+// LastError explains why the engine is not connected (version mismatch,
+// unreachable, stream ended), or nil while connected / before any attempt.
+func (c *Client) LastError() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.connected {
+		return nil
+	}
+	if c.incompatible != nil {
+		return c.incompatible
+	}
+	return c.lastErr
+}
+
 // unavailable returns the error reported to callers while disconnected.
 func (c *Client) unavailable() error {
 	c.mu.Lock()
@@ -187,6 +202,9 @@ func (c *Client) Run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		c.mu.Lock()
+		c.lastErr = err
+		c.mu.Unlock()
 		if established {
 			delay = c.opts.MinBackoff
 			c.log.Warn("engine connection lost", "err", err)

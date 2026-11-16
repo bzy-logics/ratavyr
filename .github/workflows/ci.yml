@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then echo "not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+
+  contract:
+    # gen/ must match the engine-api contract pinned in contract.lock.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: bzyfuzy/motioncore
+          path: .motioncore
+          fetch-depth: 0 # tags
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: scripts/check-contract.sh
+        env:
+          MOTIONCORE_REPO: ${{ github.workspace }}/.motioncore
+
+  integration:
+    # ratavyr against the real engine with its virtual MCU.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: bzyfuzy/motioncore
+          path: .motioncore
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .motioncore
+      - run: cargo build -p motioncore-cli
+        working-directory: .motioncore
+      - run: go test -tags integration -count=1 -v ./internal/integration/
+        env:
+          MOTIONCORE_BIN: ${{ github.workspace }}/.motioncore/target/debug/motioncore
+          MOTIONCORE_REPO: ${{ github.workspace }}/.motioncore

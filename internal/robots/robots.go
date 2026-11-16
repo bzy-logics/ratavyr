@@ -15,8 +15,25 @@ import (
 
 	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
 	"github.com/bzyfuzy/ratavyr/internal/api/rest"
+	"github.com/bzyfuzy/ratavyr/internal/audit"
+	"github.com/bzyfuzy/ratavyr/internal/auth"
 	"github.com/bzyfuzy/ratavyr/internal/engine"
 )
+
+// RoleFor is the minimum role for a command. Stopping is open to every
+// authenticated client (anyone who can see the robot may stop it); anything
+// that energises drives or moves an axis needs the operator role.
+func RoleFor(command string) auth.Role {
+	switch command {
+	case "stop", "estop":
+		return auth.Viewer
+	default:
+		return auth.Operator
+	}
+}
+
+// MaxAxisIDLength bounds axis identifiers in requests.
+const MaxAxisIDLength = 64
 
 // Handler serves /api/status, /api/config and /api/commands/{name}.
 type Handler struct {
@@ -56,16 +73,31 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request) {
 		rest.WriteError(w, http.StatusNotFound, "unknown_command", "unknown command: "+name)
 		return
 	}
+	if need := RoleFor(name); auth.RoleFrom(r.Context()) < need {
+		rest.WriteError(w, http.StatusForbidden, "forbidden",
+			"command "+name+" requires the "+need.String()+" role (you are "+auth.RoleFrom(r.Context()).String()+")")
+		return
+	}
 	body, ok := rest.ReadObject(w, r)
 	if !ok {
 		return
 	}
+	audit.Note(r.Context(), "params", string(body))
 	err := run(r.Context(), h.Engine, body)
 	var pe *paramError
+	var ee *engine.Error
 	switch {
 	case errors.As(err, &pe):
+		audit.Note(r.Context(), "error", "bad_request")
 		rest.BadRequest(w, pe.msg)
 	case err != nil:
+		code := "engine_unavailable"
+		if errors.As(err, &ee) {
+			code = ee.Code
+		} else if errors.Is(err, engine.ErrTimeout) {
+			code = "engine_timeout"
+		}
+		audit.Note(r.Context(), "error", code)
 		rest.WriteEngineError(w, h.Log, name, err)
 	default:
 		rest.WriteJSON(w, http.StatusOK, struct{}{})
@@ -189,6 +221,14 @@ func decode(raw json.RawMessage, dst any) error {
 func requireAxis(axis *string) error {
 	if axis == nil || *axis == "" {
 		return badParams(`missing parameter "axis"`)
+	}
+	if len(*axis) > MaxAxisIDLength {
+		return badParams(`"axis" is longer than %d characters`, MaxAxisIDLength)
+	}
+	for _, c := range *axis {
+		if !(c == '_' || c == '-' || c == '.' || ('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
+			return badParams(`"axis" may only contain letters, digits, '_', '-' and '.'`)
+		}
 	}
 	return nil
 }

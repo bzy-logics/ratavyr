@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/bzyfuzy/ratavyr/internal/api/rest"
 	"github.com/bzyfuzy/ratavyr/internal/engine"
+	"github.com/coder/websocket"
 )
 
 const writeWait = 5 * time.Second

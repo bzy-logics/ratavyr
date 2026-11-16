@@ -6,3 +6,5 @@
 *.exe
 *.test
 *.out
+# Engine clone used by CI
+/.motioncore/

@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/bzyfuzy/ratavyr/internal/api"
+	"github.com/bzyfuzy/ratavyr/internal/audit"
+	"github.com/bzyfuzy/ratavyr/internal/auth"
 	"github.com/bzyfuzy/ratavyr/internal/config"
 	"github.com/bzyfuzy/ratavyr/internal/engine"
 )
@@ -33,6 +35,19 @@ func run(log *slog.Logger) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	for _, w := range cfg.Warnings() {
+		log.Warn("configuration", "warning", w)
+	}
+
+	auditLog := audit.New(log)
+	if cfg.AuditLog != "" {
+		f, err := os.OpenFile(cfg.AuditLog, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		auditLog = audit.New(slog.New(slog.NewJSONHandler(f, nil)))
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -50,16 +65,20 @@ func run(log *slog.Logger) error {
 		Handler: api.New(api.Options{
 			Engine:         eng,
 			Log:            log,
-			Token:          cfg.APIToken,
+			Audit:          auditLog,
+			Tokens:         auth.Tokens{Admin: cfg.APIToken, Operator: cfg.OperatorToken, Viewer: cfg.ViewerToken},
 			WebDir:         cfg.WebDir,
 			OriginPatterns: cfg.AllowedOrigins,
+			AllowedHosts:   cfg.AllowedHosts,
+			RateLimit:      cfg.RateLimit,
+			RateBurst:      cfg.RateBurst,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", srv.Addr, "engine", cfg.EngineAddr, "auth", cfg.APIToken != "", "version", api.ServerVersion)
+		log.Info("listening", "addr", srv.Addr, "engine", cfg.EngineAddr, "auth", cfg.AuthEnabled(), "version", api.ServerVersion)
 		errc <- srv.ListenAndServe()
 	}()
 

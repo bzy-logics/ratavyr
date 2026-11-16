@@ -17,27 +17,81 @@ derives robot state; every robot field below is relayed from the engine.
 |---|---|
 | `bad_request`, `validation_failed`, `not_homed` | 400 |
 | `unauthorized` | 401 |
+| `forbidden` | 403 |
 | `not_found`, `unknown_axis`, `unknown_command` | 404 |
+| `method_not_allowed` (with `Allow` header) | 405 |
 | `invalid_state` | 409 |
+| `unsupported_media_type` | 415 |
+| `rate_limited` (with `Retry-After`) | 429 |
 | `mcu_error` | 502 |
 | `engine_unavailable` | 503 |
 | `engine_timeout` | 504 |
 | `internal`, anything else | 500 |
 
-## Authentication
+## Authentication and authorization
 
-If the server is started with `MOTIONCORE_API_TOKEN`, every `/api/*`
-endpoint except `GET /api/health` and `GET /api/info` requires
-`Authorization: Bearer <token>`. Browsers cannot set headers on WebSockets,
-so `/api/ws` accepts `?access_token=<token>` instead. Without a token the
-server only binds to loopback by default.
+Tokens are configured per role. Each request authenticates with
+`Authorization: Bearer <token>` and gets the role of that token:
+
+| role | token variable | may |
+|---|---|---|
+| `viewer` | `MOTIONCORE_VIEWER_TOKEN` | read everything, WebSocket, `stop`, `estop` |
+| `operator` | `MOTIONCORE_OPERATOR_TOKEN` | viewer + all other commands, firmware builds |
+| `admin` | `MOTIONCORE_API_TOKEN` | operator + firmware flashing |
+
+* Every `/api/*` endpoint except `GET /api/health` and `GET /api/info` needs
+  a token once any token is configured. A missing or wrong token gets 401
+  `unauthorized`; an action above the caller's role gets 403 `forbidden`.
+* Stopping is open to every authenticated role: anyone who can see the robot
+  may stop it.
+* After 10 failed authentications within a minute, a client IP gets 429
+  `rate_limited` (even with a correct token) until the window passes.
+* **No token configured** = authentication off: every request is treated as
+  `admin`, and the server refuses to listen on anything but loopback.
+  `MOTIONCORE_API_TOKEN` alone keeps the previous behavior (one token, full
+  access).
+
+### WebSocket authentication
+
+Browsers cannot set headers on WebSocket requests. Get a short-lived ticket
+with the normal bearer token and pass it in the URL:
+
+```
+POST /api/ws-tickets   {}            -> 201 {"ticket": "...", "expires_in_ms": 30000}
+GET  /api/ws?ticket=<ticket>
+```
+
+A ticket is valid **once**, for 30 s, and carries the role of the token that
+requested it. `?access_token=<token>` still works but is **deprecated**: it
+puts the long-lived token into URLs and access logs. The server logs a
+warning each time it is used. It will be removed in a future major API
+version.
+
+## Request rules
+
+* **Cross-site protection.** `POST` requests may not use `text/plain`,
+  `application/x-www-form-urlencoded` or `multipart/form-data` (415
+  `unsupported_media_type`); send `application/json` or no body type. When a
+  browser sends an `Origin`, it must be the server's own origin or match
+  `MOTIONCORE_ALLOWED_ORIGINS` (403 `forbidden` otherwise).
+* **DNS-rebinding protection.** While authentication is off, the `Host`
+  header must be `localhost`, a loopback IP, or match
+  `MOTIONCORE_ALLOWED_HOSTS` (403 `forbidden`).
+* **Rate limit.** `POST` requests are limited per client IP
+  (`MOTIONCORE_RATE_LIMIT` per second, burst `MOTIONCORE_RATE_BURST`;
+  defaults 20/40). `stop` and `estop` are **never** limited.
+* Request bodies are at most 64 KiB; unknown JSON fields are rejected.
+  Axis ids are 1–64 characters of letters, digits, `_`, `-` and `.`.
+* Every API response carries `Cache-Control: no-store`.
 
 ## Endpoints
 
 | method | path | body | response |
 |---|---|---|---|
 | GET | `/api/health` | – | `{"status":"ok","engine":{"connected":bool}}` |
-| GET | `/api/info` | – | `{"server_version":"0.2.0","auth_required":bool,"engine":EngineInfo\|null}` |
+| GET | `/api/info` | – | `{"server_version":"0.3.0","auth_required":bool,"engine":EngineInfo\|null,"engine_error":string\|null}` |
+| GET | `/api/session` | – | `Session` (the caller's role and permissions) |
+| POST | `/api/ws-tickets` | `{}` | `{"ticket":string,"expires_in_ms":30000}` (201) |
 | GET | `/api/status` | – | `Telemetry` |
 | GET | `/api/config` | – | `RobotConfig` |
 | GET | `/api/plugins` | – | `Plugin[]` |
@@ -51,12 +105,22 @@ server only binds to loopback by default.
 
 Command names and params:
 
-| name | params |
-|---|---|
-| `enable`, `disable`, `stop`, `estop`, `reset_fault` | none |
-| `jog` | `{"axis": "j1", "delta": 5.0, "velocity"?: 30.0}` |
-| `move_to` | `{"axis": "j1", "position": -90.0, "velocity"?: 30.0}` |
-| `home` | `{"axis": "j1"}` |
+| name | params | minimum role |
+|---|---|---|
+| `stop`, `estop` | none | viewer |
+| `enable`, `disable`, `reset_fault` | none | operator |
+| `jog` | `{"axis": "j1", "delta": 5.0, "velocity"?: 30.0}` | operator |
+| `move_to` | `{"axis": "j1", "position": -90.0, "velocity"?: 30.0}` | operator |
+| `home` | `{"axis": "j1"}` | operator |
+
+A successful command response (`{}`) means the engine **accepted** the
+command, not that it has finished. For `estop` in particular, clients must
+wait for telemetry with `"state": "emergency_stopped"` before showing the
+stop as confirmed. A software emergency stop never replaces a hardware
+E-stop circuit.
+
+Firmware: `POST /api/firmware/builds` needs operator, `POST
+/api/firmware/flashes` needs admin.
 
 ## WebSocket `/api/ws`
 
@@ -72,6 +136,14 @@ On connect the client receives `engine`, then the latest cached telemetry if
 any. Slow clients are disconnected (close code 1013).
 
 ## Types
+
+```jsonc
+// Session
+{"auth_required": true, "role": "operator",            // viewer|operator|admin
+ "permissions": {"view": true, "stop": true, "command": true,
+                 "firmware_build": true, "firmware_flash": false}}
+// Without configured tokens: {"auth_required": false, "role": "admin", all permissions true}
+```
 
 ```jsonc
 // EngineInfo
@@ -148,9 +220,12 @@ any. Slow clients are disconnected (close code 1013).
   it only works when the robot has exactly one MCU.
 * **401 responses** use the error envelope with code `unauthorized` and carry
   `WWW-Authenticate: Bearer`.
-* **`?access_token=` on `/api/ws`** can appear in proxy/access logs. Prefer
-  loopback deployments or a TLS-terminating proxy that strips query strings
-  from logs; a short-lived ticket endpoint is planned.
+* **`engine_error`** in `/api/info` explains why the engine is not
+  connected, e.g. `incompatible engine api_version "2.0.0" (this server
+  requires 1.x)` or the last connection error; `null` while connected.
+* **Firmware verification** (comparing the running MCU firmware with an
+  artifact) is a CLI-only engine feature (`motioncore firmware verify`); the
+  engine API has no RPC for it yet, so this server cannot offer it.
 * **Telemetry describes one MCU** (v1 engines support one MCU per robot). A
   future additive change will introduce `mcus: McuStatus[]` keyed by name.
 * Pin fields `step_pin`, `dir_pin`, `enable_pin` are always present
