@@ -86,7 +86,7 @@ export default defineConfig({
     outline: { level: [2, 3] },
 
     footer: {
-      message: 'Part of MotionCore. A software stop never replaces a hardware E-stop circuit.',
+      message: 'Part of MotionCore. Licensed under GPL-3.0. A software stop never replaces a hardware E-stop circuit.',
     },
   },
 })
