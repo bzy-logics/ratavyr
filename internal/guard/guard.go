@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bzyfuzy/ratavyr/internal/api/rest"
-	"github.com/bzyfuzy/ratavyr/internal/auth"
+	"github.com/bzy-logics/ratavyr/internal/api/rest"
+	"github.com/bzy-logics/ratavyr/internal/auth"
 )
 
 // Options configures the guard.

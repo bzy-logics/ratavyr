@@ -14,11 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bzyfuzy/ratavyr/internal/api"
-	"github.com/bzyfuzy/ratavyr/internal/audit"
-	"github.com/bzyfuzy/ratavyr/internal/auth"
-	"github.com/bzyfuzy/ratavyr/internal/config"
-	"github.com/bzyfuzy/ratavyr/internal/engine"
+	"github.com/bzy-logics/ratavyr/internal/api"
+	"github.com/bzy-logics/ratavyr/internal/audit"
+	"github.com/bzy-logics/ratavyr/internal/auth"
+	"github.com/bzy-logics/ratavyr/internal/config"
+	"github.com/bzy-logics/ratavyr/internal/engine"
 )
 
 func main() {

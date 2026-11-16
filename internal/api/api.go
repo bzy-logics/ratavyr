@@ -20,19 +20,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bzyfuzy/ratavyr/internal/api/rest"
-	"github.com/bzyfuzy/ratavyr/internal/audit"
-	"github.com/bzyfuzy/ratavyr/internal/auth"
-	"github.com/bzyfuzy/ratavyr/internal/engine"
-	"github.com/bzyfuzy/ratavyr/internal/firmware"
-	"github.com/bzyfuzy/ratavyr/internal/guard"
-	"github.com/bzyfuzy/ratavyr/internal/plugins"
-	"github.com/bzyfuzy/ratavyr/internal/robots"
-	"github.com/bzyfuzy/ratavyr/internal/websocket"
+	"github.com/bzy-logics/ratavyr/internal/api/rest"
+	"github.com/bzy-logics/ratavyr/internal/audit"
+	"github.com/bzy-logics/ratavyr/internal/auth"
+	"github.com/bzy-logics/ratavyr/internal/engine"
+	"github.com/bzy-logics/ratavyr/internal/firmware"
+	"github.com/bzy-logics/ratavyr/internal/guard"
+	"github.com/bzy-logics/ratavyr/internal/plugins"
+	"github.com/bzy-logics/ratavyr/internal/robots"
+	"github.com/bzy-logics/ratavyr/internal/websocket"
 )
 
 // ServerVersion is reported by GET /api/info. Overridable at link time with
-// -ldflags "-X github.com/bzyfuzy/ratavyr/internal/api.ServerVersion=...".
+// -ldflags "-X github.com/bzy-logics/ratavyr/internal/api.ServerVersion=...".
 var ServerVersion = "0.3.0"
 
 // Options configures the handler.

@@ -9,7 +9,7 @@ package rest
 import (
 	"strings"
 
-	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
+	enginev1 "github.com/bzy-logics/ratavyr/gen/motioncore/engine/v1"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 

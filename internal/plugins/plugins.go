@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
-	"github.com/bzyfuzy/ratavyr/internal/api/rest"
-	"github.com/bzyfuzy/ratavyr/internal/engine"
+	enginev1 "github.com/bzy-logics/ratavyr/gen/motioncore/engine/v1"
+	"github.com/bzy-logics/ratavyr/internal/api/rest"
+	"github.com/bzy-logics/ratavyr/internal/engine"
 )
 
 // Handler serves the plugin list relayed from the engine.

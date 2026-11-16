@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bzyfuzy/ratavyr/internal/auth"
+	"github.com/bzy-logics/ratavyr/internal/auth"
 )
 
 type notesKey struct{}

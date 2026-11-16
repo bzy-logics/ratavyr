@@ -1,4 +1,4 @@
-module github.com/bzyfuzy/ratavyr
+module github.com/bzy-logics/ratavyr
 
 go 1.24
 

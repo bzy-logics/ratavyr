@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
-	"github.com/bzyfuzy/ratavyr/internal/engine"
-	"github.com/bzyfuzy/ratavyr/internal/engine/enginetest"
+	enginev1 "github.com/bzy-logics/ratavyr/gen/motioncore/engine/v1"
+	"github.com/bzy-logics/ratavyr/internal/engine"
+	"github.com/bzy-logics/ratavyr/internal/engine/enginetest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 )

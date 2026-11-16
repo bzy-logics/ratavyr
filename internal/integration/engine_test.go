@@ -29,10 +29,10 @@ import (
 
 	"github.com/coder/websocket"
 
-	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
-	"github.com/bzyfuzy/ratavyr/internal/api"
-	"github.com/bzyfuzy/ratavyr/internal/auth"
-	"github.com/bzyfuzy/ratavyr/internal/engine"
+	enginev1 "github.com/bzy-logics/ratavyr/gen/motioncore/engine/v1"
+	"github.com/bzy-logics/ratavyr/internal/api"
+	"github.com/bzy-logics/ratavyr/internal/auth"
+	"github.com/bzy-logics/ratavyr/internal/engine"
 )
 
 var tokens = auth.Tokens{Admin: "integration-admin-token", Operator: "integration-operator-token", Viewer: "integration-viewer-token"}

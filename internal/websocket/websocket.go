@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bzyfuzy/ratavyr/internal/api/rest"
-	"github.com/bzyfuzy/ratavyr/internal/engine"
+	"github.com/bzy-logics/ratavyr/internal/api/rest"
+	"github.com/bzy-logics/ratavyr/internal/engine"
 	"github.com/coder/websocket"
 )
 

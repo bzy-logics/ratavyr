@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bzyfuzy/ratavyr/internal/audit"
-	"github.com/bzyfuzy/ratavyr/internal/auth"
+	"github.com/bzy-logics/ratavyr/internal/audit"
+	"github.com/bzy-logics/ratavyr/internal/auth"
 )
 
 var roleTokens = auth.Tokens{

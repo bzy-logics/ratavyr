@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	enginev1 "github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1"
+	enginev1 "github.com/bzy-logics/ratavyr/gen/motioncore/engine/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"

@@ -1,9 +1,9 @@
 # ratavyr
 
 Go management server for MotionCore. It talks to the Rust engine
-([motioncore](https://github.com/bzyfuzy/motioncore)) over gRPC
+([motioncore](https://github.com/bzy-logics/motioncore)) over gRPC
 (`motioncore.engine.v1`) and exposes the REST/WebSocket API used by
-[sindrava](https://github.com/bzyfuzy/sindrava) and other clients, specified
+[sindrava](https://github.com/bzy-logics/sindrava) and other clients, specified
 in [`docs/rest-api.md`](docs/rest-api.md) (the source of truth for the HTTP
 API).
 
@@ -135,7 +135,7 @@ gen/                 generated gRPC bindings (committed, do not edit)
 
 Compatibility: **engine-api 1.x** (`motioncore.engine.v1`). The contract is
 pinned in [`contract.lock`](contract.lock): source repo, tag
-(`engine-api/v1.0.1`), commit, proto path and its sha256. No copy of the proto is
+(`engine-api/v1.0.2`), commit, proto path and its sha256. No copy of the proto is
 kept in this repo.
 
 ```sh

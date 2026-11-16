@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: bzyfuzy/motioncore
+          repository: bzy-logics/motioncore
           path: .motioncore
           fetch-depth: 0 # tags
       - uses: actions/setup-go@v5
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: bzyfuzy/motioncore
+          repository: bzy-logics/motioncore
           path: .motioncore
       - uses: actions/setup-go@v5
         with:

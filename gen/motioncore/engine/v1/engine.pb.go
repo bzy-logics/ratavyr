@@ -3063,7 +3063,7 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\n" +
 	"StartFlash\x12'.motioncore.engine.v1.StartFlashRequest\x1a!.motioncore.engine.v1.FirmwareJob\x12P\n" +
 	"\x06GetJob\x12#.motioncore.engine.v1.GetJobRequest\x1a!.motioncore.engine.v1.FirmwareJob\x12Y\n" +
-	"\bListJobs\x12%.motioncore.engine.v1.ListJobsRequest\x1a&.motioncore.engine.v1.ListJobsResponseB>Z<github.com/bzyfuzy/ratavyr/gen/motioncore/engine/v1;enginev1b\x06proto3"
+	"\bListJobs\x12%.motioncore.engine.v1.ListJobsRequest\x1a&.motioncore.engine.v1.ListJobsResponseBAZ?github.com/bzy-logics/ratavyr/gen/motioncore/engine/v1;enginev1b\x06proto3"
 
 var (
 	file_motioncore_engine_v1_engine_proto_rawDescOnce sync.Once

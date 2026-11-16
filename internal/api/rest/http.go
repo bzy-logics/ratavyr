@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/bzyfuzy/ratavyr/internal/engine"
+	"github.com/bzy-logics/ratavyr/internal/engine"
 )
 
 // MaxBodyBytes limits request bodies.
