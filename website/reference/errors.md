@@ -20,6 +20,7 @@ Clients should branch on `code`, not on `message`.
 | `unknown_command` | 404 | No such command name |
 | `method_not_allowed` | 405 | With an `Allow` header |
 | `invalid_state` | 409 | Not allowed in the current robot state (moving while not `ready`; flashing while drives are on or another job runs) |
+| `collision` | 409 | The move would make the robot's links collide or reach the floor (engines with collision checking, all axes homed). The message names the links and the joint value |
 | `unsupported_media_type` | 415 | `POST` with `text/plain`, a form, or multipart content type |
 | `rate_limited` | 429 | Too many `POST`s, or too many failed logins. Carries `Retry-After` |
 | `mcu_error` | 502 | The MCU rejected the request or the link failed |

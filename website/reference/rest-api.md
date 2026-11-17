@@ -72,6 +72,7 @@ See [Authentication & roles](/guide/authentication). In short: send `Authorizati
 | `jog` | `{"axis":"j1","delta":5.0,"velocity"?:30.0}` | operator |
 | `move_to` | `{"axis":"j1","position":-90.0,"velocity"?:30.0}` | operator |
 | `home` | `{"axis":"j1"}` | operator |
+| `home_all` | `{}` | operator |
 
 A `{}` response means the engine **accepted** the command, not that it has finished. For `estop`, wait for telemetry with `"state": "emergency_stopped"` before showing the stop as confirmed. A software emergency stop never replaces a hardware E-stop circuit.
 
@@ -131,7 +132,8 @@ Live telemetry and logs: see [WebSocket](/reference/websocket).
     "last_heartbeat_ms_ago": 12           // or null
   },
   "axes": [{"id": "j1", "homed": true, "enabled": true, "commanded_position": 45.0,
-            "measured_position": 44.98, "velocity": 0.0, "endstop": false}]
+            "measured_position": 44.98, "velocity": 0.0, "endstop": false,
+            "homing": false}]        // homing: this axis is searching for its switch (engine-api >= 1.2)
 }
 ```
 
@@ -159,15 +161,24 @@ Live telemetry and logs: see [WebSocket](/reference/websocket).
       "origin_mm": [0.0, 0.0, 120.0],       // joint origin in the parent frame
       "rotation_deg": [0.0, 0.0, 0.0],      // fixed roll, pitch, yaw (about X, Y, Z, in that order)
       "axis": [0.0, 0.0, 1.0],              // unit rotation axis / slide direction
-      "tip_mm": null                        // or [x, y, z]: end of this joint's link (e.g. tool flange)
+      "tip_mm": null,                       // or [x, y, z]: end of this joint's link (e.g. tool flange)
+      "radius_mm": null                     // or link thickness of the collision model, mm; engine-api >= 1.2
     }
-  }]
+  }],
+  "home_all": {                             // or null; engine-api >= 1.2
+    "groups": [["j1"]],                     // axes of a group home together; groups run in order
+    "start_pose": null,                     // or the pose the plan was designed for
+    "from_profile": false                   // false = default plan, one axis per group in profile order
+  },
+  "collision_checking": false               // engine-api >= 1.2
 }
 ```
 
 `step_pin`, `dir_pin` and `enable_pin` are always non-empty; `endstop_pin` is `null` when the axis has no endstop.
 
-`geometry` places the joint in the robot's kinematic tree, following the URDF joint convention: `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`, where `frame(parent)` includes the parent's joint motion and `q` is in deg (revolute) or mm (prismatic). Either every axis has `geometry` or none does; it is `null` with engines older than API 1.1. It describes the machine for display only — commands still address one axis at a time. See [MotionCore: geometry](https://motioncore.bzy-logics.com/guide/configuration#_7-geometry-optional).
+`geometry` places the joint in the robot's kinematic tree, following the URDF joint convention: `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`, where `frame(parent)` includes the parent's joint motion and `q` is in deg (revolute) or mm (prismatic). Either every axis has `geometry` or none does; it is `null` with engines older than API 1.1. Commands still address one axis at a time. See [MotionCore: geometry](https://motioncore.bzy-logics.com/guide/configuration#_7-geometry-optional).
+
+`home_all` describes what the `home_all` command does: the axes of one group home at the same time, and the groups run in order. Show `start_pose` to the operator before sending it: the engine cannot check homing paths, because joint positions are unknown until each switch triggers. When `collision_checking` is true, the engine models each link as a capsule of `radius_mm` and, once every axis is homed, refuses `jog` and `move_to` commands that would bring links within 2 mm of each other or of the floor, with `409 collision`. See [MotionCore: collision checking](https://motioncore.bzy-logics.com/guide/configuration#collision-checking).
 
 ### Plugin
 
