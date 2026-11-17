@@ -101,7 +101,7 @@ go test -race ./...           # needs cgo (CI runs it on Linux)
 ```
 
 Integration tests run against the **real** engine with its virtual MCU
-(enable, home, jog, move, stop, E-stop, fault injection and reset, engine
+(enable, home, home all, jog, move, stop, E-stop, fault injection and reset, engine
 loss and recovery, firmware API, roles):
 
 ```sh
@@ -137,7 +137,7 @@ gen/                 generated gRPC bindings (committed, do not edit)
 
 Compatibility: **engine-api 1.x** (`motioncore.engine.v1`). The contract is
 pinned in [`contract.lock`](contract.lock): source repo, tag
-(`engine-api/v1.1.0`, adds axis geometry; not yet tagged), commit, proto path and its sha256. No copy of the proto is
+(`engine-api/v1.2.0`, adds home-all plans and collision checking; not yet tagged), commit, proto path and its sha256. No copy of the proto is
 kept in this repo.
 
 ```sh

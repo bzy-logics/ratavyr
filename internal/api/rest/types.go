@@ -68,6 +68,8 @@ type AxisTelemetry struct {
 	MeasuredPosition  float64 `json:"measured_position"`
 	Velocity          float64 `json:"velocity"`
 	Endstop           bool    `json:"endstop"`
+	// Homing is true while the axis is homing (engine-api >= 1.2).
+	Homing bool `json:"homing"`
 }
 
 // RobotConfig is the loaded robot configuration.
@@ -76,6 +78,20 @@ type RobotConfig struct {
 	Profile string       `json:"profile"`
 	MCUs    []MCUConfig  `json:"mcus"`
 	Axes    []AxisConfig `json:"axes"`
+	// HomeAll is how the home_all command proceeds; null with engines older
+	// than API 1.2.
+	HomeAll *HomeAllPlan `json:"home_all"`
+	// CollisionChecking is true when the engine refuses moves that would make
+	// the robot collide with itself or the floor (engine-api >= 1.2).
+	CollisionChecking bool `json:"collision_checking"`
+}
+
+// HomeAllPlan lists the groups of the home_all command: the axes of a group
+// home at the same time, groups in order.
+type HomeAllPlan struct {
+	Groups      [][]string `json:"groups"`
+	StartPose   *string    `json:"start_pose"`
+	FromProfile bool       `json:"from_profile"`
 }
 
 // MCUConfig describes one configured MCU.
@@ -121,6 +137,8 @@ type AxisGeometry struct {
 	// TipMM is the end of this joint's link (e.g. the tool flange) in its
 	// joint frame; null when not configured.
 	TipMM *[3]float64 `json:"tip_mm"`
+	// RadiusMM is the link radius of the collision model; null if not set.
+	RadiusMM *float64 `json:"radius_mm"`
 }
 
 // Plugin is a loaded plugin.
@@ -278,6 +296,7 @@ func FromTelemetry(t *enginev1.Telemetry) Telemetry {
 			MeasuredPosition:  a.GetMeasuredPosition(),
 			Velocity:          a.GetVelocity(),
 			Endstop:           a.GetEndstop(),
+			Homing:            a.GetHoming(),
 		})
 	}
 	return out
@@ -334,9 +353,21 @@ func FromRobotConfig(c *enginev1.RobotConfig) RobotConfig {
 				tip := v3(t)
 				ac.Geometry.TipMM = &tip
 			}
+			if g.RadiusMm != nil {
+				r := g.GetRadiusMm()
+				ac.Geometry.RadiusMM = &r
+			}
 		}
 		out.Axes = append(out.Axes, ac)
 	}
+	if p := c.GetHomeAll(); p != nil {
+		plan := &HomeAllPlan{Groups: make([][]string, 0, len(p.GetGroups())), StartPose: nonEmpty(p.GetStartPose()), FromProfile: p.GetFromProfile()}
+		for _, g := range p.GetGroups() {
+			plan.Groups = append(plan.Groups, append([]string{}, g.GetAxes()...))
+		}
+		out.HomeAll = plan
+	}
+	out.CollisionChecking = c.GetCollisionChecking()
 	return out
 }
 

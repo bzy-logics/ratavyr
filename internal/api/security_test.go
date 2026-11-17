@@ -36,6 +36,7 @@ func TestRolesAreEnforced(t *testing.T) {
 		{"POST", "/api/commands/enable", "{}", 403, 200},
 		{"POST", "/api/commands/jog", `{"axis":"j1","delta":1}`, 403, 200},
 		{"POST", "/api/commands/reset_fault", "{}", 403, 200},
+		{"POST", "/api/commands/home_all", "{}", 403, 200},
 		{"POST", "/api/firmware/builds", `{"mcu":"main"}`, 403, 202},
 		{"POST", "/api/firmware/flashes", `{"build_job_id":"build-1","confirm":true}`, 403, 403},
 	}

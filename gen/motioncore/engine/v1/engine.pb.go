@@ -932,8 +932,10 @@ type AxisTelemetry struct {
 	MeasuredPosition float64 `protobuf:"fixed64,5,opt,name=measured_position,json=measuredPosition,proto3" json:"measured_position,omitempty"`
 	Velocity         float64 `protobuf:"fixed64,6,opt,name=velocity,proto3" json:"velocity,omitempty"`
 	Endstop          bool    `protobuf:"varint,7,opt,name=endstop,proto3" json:"endstop,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// True while this axis is homing (alone or as part of HomeAll). Added in 1.2.0.
+	Homing        bool `protobuf:"varint,8,opt,name=homing,proto3" json:"homing,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AxisTelemetry) Reset() {
@@ -1015,6 +1017,13 @@ func (x *AxisTelemetry) GetEndstop() bool {
 	return false
 }
 
+func (x *AxisTelemetry) GetHoming() bool {
+	if x != nil {
+		return x.Homing
+	}
+	return false
+}
+
 type GetRobotConfigRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1052,13 +1061,19 @@ func (*GetRobotConfigRequest) Descriptor() ([]byte, []int) {
 }
 
 type RobotConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Profile       string                 `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
-	Axes          []*AxisConfig          `protobuf:"bytes,3,rep,name=axes,proto3" json:"axes,omitempty"`
-	Mcus          []*McuConfig           `protobuf:"bytes,4,rep,name=mcus,proto3" json:"mcus,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Profile string                 `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
+	Axes    []*AxisConfig          `protobuf:"bytes,3,rep,name=axes,proto3" json:"axes,omitempty"`
+	Mcus    []*McuConfig           `protobuf:"bytes,4,rep,name=mcus,proto3" json:"mcus,omitempty"`
+	// How HomeAll proceeds. Added in 1.2.0.
+	HomeAll *HomeAllPlan `protobuf:"bytes,5,opt,name=home_all,json=homeAll,proto3" json:"home_all,omitempty"`
+	// True when every axis has a link radius: moves that would make the robot
+	// collide with itself or the floor are refused (error code "collision").
+	// Added in 1.2.0.
+	CollisionChecking bool `protobuf:"varint,6,opt,name=collision_checking,json=collisionChecking,proto3" json:"collision_checking,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *RobotConfig) Reset() {
@@ -1119,6 +1134,130 @@ func (x *RobotConfig) GetMcus() []*McuConfig {
 	return nil
 }
 
+func (x *RobotConfig) GetHomeAll() *HomeAllPlan {
+	if x != nil {
+		return x.HomeAll
+	}
+	return nil
+}
+
+func (x *RobotConfig) GetCollisionChecking() bool {
+	if x != nil {
+		return x.CollisionChecking
+	}
+	return false
+}
+
+// Axes of one group home at the same time; groups run in order. Before
+// homing, joint positions are unknown, so the engine cannot check these
+// paths: the plan's safety rests on its design and on the start pose.
+type HomeAllPlan struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Groups []*HomeAllGroup        `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"`
+	// What pose the robot must be in before HomeAll (from the profile; may be empty).
+	StartPose string `protobuf:"bytes,2,opt,name=start_pose,json=startPose,proto3" json:"start_pose,omitempty"`
+	// True when the plan comes from the profile's [home_all]; false for the
+	// default plan (each homeable axis alone, in profile order).
+	FromProfile   bool `protobuf:"varint,3,opt,name=from_profile,json=fromProfile,proto3" json:"from_profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HomeAllPlan) Reset() {
+	*x = HomeAllPlan{}
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HomeAllPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HomeAllPlan) ProtoMessage() {}
+
+func (x *HomeAllPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HomeAllPlan.ProtoReflect.Descriptor instead.
+func (*HomeAllPlan) Descriptor() ([]byte, []int) {
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *HomeAllPlan) GetGroups() []*HomeAllGroup {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+func (x *HomeAllPlan) GetStartPose() string {
+	if x != nil {
+		return x.StartPose
+	}
+	return ""
+}
+
+func (x *HomeAllPlan) GetFromProfile() bool {
+	if x != nil {
+		return x.FromProfile
+	}
+	return false
+}
+
+type HomeAllGroup struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Axes          []string               `protobuf:"bytes,1,rep,name=axes,proto3" json:"axes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HomeAllGroup) Reset() {
+	*x = HomeAllGroup{}
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HomeAllGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HomeAllGroup) ProtoMessage() {}
+
+func (x *HomeAllGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HomeAllGroup.ProtoReflect.Descriptor instead.
+func (*HomeAllGroup) Descriptor() ([]byte, []int) {
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *HomeAllGroup) GetAxes() []string {
+	if x != nil {
+		return x.Axes
+	}
+	return nil
+}
+
 type McuConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1131,7 +1270,7 @@ type McuConfig struct {
 
 func (x *McuConfig) Reset() {
 	*x = McuConfig{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[9]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +1282,7 @@ func (x *McuConfig) String() string {
 func (*McuConfig) ProtoMessage() {}
 
 func (x *McuConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[9]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +1295,7 @@ func (x *McuConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McuConfig.ProtoReflect.Descriptor instead.
 func (*McuConfig) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{9}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *McuConfig) GetName() string {
@@ -1219,7 +1358,7 @@ type AxisConfig struct {
 
 func (x *AxisConfig) Reset() {
 	*x = AxisConfig{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[10]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1231,7 +1370,7 @@ func (x *AxisConfig) String() string {
 func (*AxisConfig) ProtoMessage() {}
 
 func (x *AxisConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[10]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1244,7 +1383,7 @@ func (x *AxisConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AxisConfig.ProtoReflect.Descriptor instead.
 func (*AxisConfig) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{10}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AxisConfig) GetId() string {
@@ -1385,7 +1524,7 @@ type Vec3 struct {
 
 func (x *Vec3) Reset() {
 	*x = Vec3{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[11]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +1536,7 @@ func (x *Vec3) String() string {
 func (*Vec3) ProtoMessage() {}
 
 func (x *Vec3) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[11]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +1549,7 @@ func (x *Vec3) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vec3.ProtoReflect.Descriptor instead.
 func (*Vec3) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{11}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Vec3) GetX() float64 {
@@ -1452,15 +1591,17 @@ type AxisGeometry struct {
 	// Unit joint axis in the joint frame: rotation axis or slide direction.
 	Axis *Vec3 `protobuf:"bytes,4,opt,name=axis,proto3" json:"axis,omitempty"`
 	// End point of this joint's link in its joint frame, mm (e.g. the tool
-	// flange of the last joint). Unset when not configured. Display only.
-	TipMm         *Vec3 `protobuf:"bytes,5,opt,name=tip_mm,json=tipMm,proto3" json:"tip_mm,omitempty"`
+	// flange of the last joint). Unset when not configured.
+	TipMm *Vec3 `protobuf:"bytes,5,opt,name=tip_mm,json=tipMm,proto3" json:"tip_mm,omitempty"`
+	// Radius of this joint's link capsules, mm (collision model). Added in 1.2.0.
+	RadiusMm      *float64 `protobuf:"fixed64,6,opt,name=radius_mm,json=radiusMm,proto3,oneof" json:"radius_mm,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AxisGeometry) Reset() {
 	*x = AxisGeometry{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[12]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1472,7 +1613,7 @@ func (x *AxisGeometry) String() string {
 func (*AxisGeometry) ProtoMessage() {}
 
 func (x *AxisGeometry) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[12]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1485,7 +1626,7 @@ func (x *AxisGeometry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AxisGeometry.ProtoReflect.Descriptor instead.
 func (*AxisGeometry) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{12}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *AxisGeometry) GetParent() string {
@@ -1523,6 +1664,13 @@ func (x *AxisGeometry) GetTipMm() *Vec3 {
 	return nil
 }
 
+func (x *AxisGeometry) GetRadiusMm() float64 {
+	if x != nil && x.RadiusMm != nil {
+		return *x.RadiusMm
+	}
+	return 0
+}
+
 type ListPluginsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1531,7 +1679,7 @@ type ListPluginsRequest struct {
 
 func (x *ListPluginsRequest) Reset() {
 	*x = ListPluginsRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[13]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1543,7 +1691,7 @@ func (x *ListPluginsRequest) String() string {
 func (*ListPluginsRequest) ProtoMessage() {}
 
 func (x *ListPluginsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[13]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1556,7 +1704,7 @@ func (x *ListPluginsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPluginsRequest.ProtoReflect.Descriptor instead.
 func (*ListPluginsRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{13}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{15}
 }
 
 type Plugin struct {
@@ -1579,7 +1727,7 @@ type Plugin struct {
 
 func (x *Plugin) Reset() {
 	*x = Plugin{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[14]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1591,7 +1739,7 @@ func (x *Plugin) String() string {
 func (*Plugin) ProtoMessage() {}
 
 func (x *Plugin) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[14]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1604,7 +1752,7 @@ func (x *Plugin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Plugin.ProtoReflect.Descriptor instead.
 func (*Plugin) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{14}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Plugin) GetId() string {
@@ -1686,7 +1834,7 @@ type ListPluginsResponse struct {
 
 func (x *ListPluginsResponse) Reset() {
 	*x = ListPluginsResponse{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[15]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1846,7 @@ func (x *ListPluginsResponse) String() string {
 func (*ListPluginsResponse) ProtoMessage() {}
 
 func (x *ListPluginsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[15]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1859,7 @@ func (x *ListPluginsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPluginsResponse.ProtoReflect.Descriptor instead.
 func (*ListPluginsResponse) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{15}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListPluginsResponse) GetPlugins() []*Plugin {
@@ -1729,7 +1877,7 @@ type StreamEventsRequest struct {
 
 func (x *StreamEventsRequest) Reset() {
 	*x = StreamEventsRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[16]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1741,7 +1889,7 @@ func (x *StreamEventsRequest) String() string {
 func (*StreamEventsRequest) ProtoMessage() {}
 
 func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[16]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1754,7 +1902,7 @@ func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEventsRequest.ProtoReflect.Descriptor instead.
 func (*StreamEventsRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{16}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{18}
 }
 
 type LogEntry struct {
@@ -1768,7 +1916,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[17]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1780,7 +1928,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[17]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1793,7 +1941,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{17}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *LogEntry) GetTimeMs() uint64 {
@@ -1830,7 +1978,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[18]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1842,7 +1990,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[18]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1855,7 +2003,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{18}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Event) GetEvent() isEvent_Event {
@@ -1907,7 +2055,7 @@ type CommandResponse struct {
 
 func (x *CommandResponse) Reset() {
 	*x = CommandResponse{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[19]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1919,7 +2067,7 @@ func (x *CommandResponse) String() string {
 func (*CommandResponse) ProtoMessage() {}
 
 func (x *CommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[19]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1932,7 +2080,7 @@ func (x *CommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResponse.ProtoReflect.Descriptor instead.
 func (*CommandResponse) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{19}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{21}
 }
 
 type EnableRequest struct {
@@ -1943,7 +2091,7 @@ type EnableRequest struct {
 
 func (x *EnableRequest) Reset() {
 	*x = EnableRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[20]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1955,7 +2103,7 @@ func (x *EnableRequest) String() string {
 func (*EnableRequest) ProtoMessage() {}
 
 func (x *EnableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[20]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1968,7 +2116,7 @@ func (x *EnableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnableRequest.ProtoReflect.Descriptor instead.
 func (*EnableRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{20}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{22}
 }
 
 // Controlled stop (if moving) followed by drive disable.
@@ -1980,7 +2128,7 @@ type DisableRequest struct {
 
 func (x *DisableRequest) Reset() {
 	*x = DisableRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[21]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1992,7 +2140,7 @@ func (x *DisableRequest) String() string {
 func (*DisableRequest) ProtoMessage() {}
 
 func (x *DisableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[21]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2005,7 +2153,7 @@ func (x *DisableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisableRequest.ProtoReflect.Descriptor instead.
 func (*DisableRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{21}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{23}
 }
 
 type JogRequest struct {
@@ -2020,7 +2168,7 @@ type JogRequest struct {
 
 func (x *JogRequest) Reset() {
 	*x = JogRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[22]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2032,7 +2180,7 @@ func (x *JogRequest) String() string {
 func (*JogRequest) ProtoMessage() {}
 
 func (x *JogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[22]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2045,7 +2193,7 @@ func (x *JogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JogRequest.ProtoReflect.Descriptor instead.
 func (*JogRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{22}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *JogRequest) GetAxis() string {
@@ -2080,7 +2228,7 @@ type MoveToRequest struct {
 
 func (x *MoveToRequest) Reset() {
 	*x = MoveToRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[23]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2092,7 +2240,7 @@ func (x *MoveToRequest) String() string {
 func (*MoveToRequest) ProtoMessage() {}
 
 func (x *MoveToRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[23]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2105,7 +2253,7 @@ func (x *MoveToRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveToRequest.ProtoReflect.Descriptor instead.
 func (*MoveToRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{23}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *MoveToRequest) GetAxis() string {
@@ -2138,7 +2286,7 @@ type HomeRequest struct {
 
 func (x *HomeRequest) Reset() {
 	*x = HomeRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[24]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2150,7 +2298,7 @@ func (x *HomeRequest) String() string {
 func (*HomeRequest) ProtoMessage() {}
 
 func (x *HomeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[24]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2163,7 +2311,7 @@ func (x *HomeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HomeRequest.ProtoReflect.Descriptor instead.
 func (*HomeRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{24}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *HomeRequest) GetAxis() string {
@@ -2171,6 +2319,42 @@ func (x *HomeRequest) GetAxis() string {
 		return x.Axis
 	}
 	return ""
+}
+
+type HomeAllRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HomeAllRequest) Reset() {
+	*x = HomeAllRequest{}
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HomeAllRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HomeAllRequest) ProtoMessage() {}
+
+func (x *HomeAllRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HomeAllRequest.ProtoReflect.Descriptor instead.
+func (*HomeAllRequest) Descriptor() ([]byte, []int) {
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{27}
 }
 
 type StopRequest struct {
@@ -2181,7 +2365,7 @@ type StopRequest struct {
 
 func (x *StopRequest) Reset() {
 	*x = StopRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[25]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2193,7 +2377,7 @@ func (x *StopRequest) String() string {
 func (*StopRequest) ProtoMessage() {}
 
 func (x *StopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[25]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2206,7 +2390,7 @@ func (x *StopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRequest.ProtoReflect.Descriptor instead.
 func (*StopRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{25}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{28}
 }
 
 type EmergencyStopRequest struct {
@@ -2217,7 +2401,7 @@ type EmergencyStopRequest struct {
 
 func (x *EmergencyStopRequest) Reset() {
 	*x = EmergencyStopRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[26]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2229,7 +2413,7 @@ func (x *EmergencyStopRequest) String() string {
 func (*EmergencyStopRequest) ProtoMessage() {}
 
 func (x *EmergencyStopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[26]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2242,7 +2426,7 @@ func (x *EmergencyStopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmergencyStopRequest.ProtoReflect.Descriptor instead.
 func (*EmergencyStopRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{26}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{29}
 }
 
 // Never resumes motion; drives stay disabled and axes must be re-homed.
@@ -2254,7 +2438,7 @@ type ResetFaultRequest struct {
 
 func (x *ResetFaultRequest) Reset() {
 	*x = ResetFaultRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[27]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2266,7 +2450,7 @@ func (x *ResetFaultRequest) String() string {
 func (*ResetFaultRequest) ProtoMessage() {}
 
 func (x *ResetFaultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[27]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2279,7 +2463,7 @@ func (x *ResetFaultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetFaultRequest.ProtoReflect.Descriptor instead.
 func (*ResetFaultRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{27}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{30}
 }
 
 type DebugDisconnectMcuRequest struct {
@@ -2290,7 +2474,7 @@ type DebugDisconnectMcuRequest struct {
 
 func (x *DebugDisconnectMcuRequest) Reset() {
 	*x = DebugDisconnectMcuRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[28]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2302,7 +2486,7 @@ func (x *DebugDisconnectMcuRequest) String() string {
 func (*DebugDisconnectMcuRequest) ProtoMessage() {}
 
 func (x *DebugDisconnectMcuRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[28]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2315,7 +2499,7 @@ func (x *DebugDisconnectMcuRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DebugDisconnectMcuRequest.ProtoReflect.Descriptor instead.
 func (*DebugDisconnectMcuRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{28}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{31}
 }
 
 type DebugFailPluginRequest struct {
@@ -2327,7 +2511,7 @@ type DebugFailPluginRequest struct {
 
 func (x *DebugFailPluginRequest) Reset() {
 	*x = DebugFailPluginRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[29]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2339,7 +2523,7 @@ func (x *DebugFailPluginRequest) String() string {
 func (*DebugFailPluginRequest) ProtoMessage() {}
 
 func (x *DebugFailPluginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[29]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2352,7 +2536,7 @@ func (x *DebugFailPluginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DebugFailPluginRequest.ProtoReflect.Descriptor instead.
 func (*DebugFailPluginRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{29}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DebugFailPluginRequest) GetId() string {
@@ -2370,7 +2554,7 @@ type ListTargetsRequest struct {
 
 func (x *ListTargetsRequest) Reset() {
 	*x = ListTargetsRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[30]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2382,7 +2566,7 @@ func (x *ListTargetsRequest) String() string {
 func (*ListTargetsRequest) ProtoMessage() {}
 
 func (x *ListTargetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[30]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2395,7 +2579,7 @@ func (x *ListTargetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTargetsRequest.ProtoReflect.Descriptor instead.
 func (*ListTargetsRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{30}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{33}
 }
 
 type FirmwareTarget struct {
@@ -2415,7 +2599,7 @@ type FirmwareTarget struct {
 
 func (x *FirmwareTarget) Reset() {
 	*x = FirmwareTarget{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[31]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2427,7 +2611,7 @@ func (x *FirmwareTarget) String() string {
 func (*FirmwareTarget) ProtoMessage() {}
 
 func (x *FirmwareTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[31]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2440,7 +2624,7 @@ func (x *FirmwareTarget) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareTarget.ProtoReflect.Descriptor instead.
 func (*FirmwareTarget) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{31}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *FirmwareTarget) GetBoard() string {
@@ -2508,7 +2692,7 @@ type ListTargetsResponse struct {
 
 func (x *ListTargetsResponse) Reset() {
 	*x = ListTargetsResponse{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[32]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2520,7 +2704,7 @@ func (x *ListTargetsResponse) String() string {
 func (*ListTargetsResponse) ProtoMessage() {}
 
 func (x *ListTargetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[32]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2533,7 +2717,7 @@ func (x *ListTargetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTargetsResponse.ProtoReflect.Descriptor instead.
 func (*ListTargetsResponse) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{32}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListTargetsResponse) GetTargets() []*FirmwareTarget {
@@ -2554,7 +2738,7 @@ type StartBuildRequest struct {
 
 func (x *StartBuildRequest) Reset() {
 	*x = StartBuildRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[33]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2566,7 +2750,7 @@ func (x *StartBuildRequest) String() string {
 func (*StartBuildRequest) ProtoMessage() {}
 
 func (x *StartBuildRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[33]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2579,7 +2763,7 @@ func (x *StartBuildRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartBuildRequest.ProtoReflect.Descriptor instead.
 func (*StartBuildRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{33}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *StartBuildRequest) GetMcu() string {
@@ -2601,7 +2785,7 @@ type StartFlashRequest struct {
 
 func (x *StartFlashRequest) Reset() {
 	*x = StartFlashRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[34]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2613,7 +2797,7 @@ func (x *StartFlashRequest) String() string {
 func (*StartFlashRequest) ProtoMessage() {}
 
 func (x *StartFlashRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[34]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2626,7 +2810,7 @@ func (x *StartFlashRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartFlashRequest.ProtoReflect.Descriptor instead.
 func (*StartFlashRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{34}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *StartFlashRequest) GetBuildJobId() string {
@@ -2652,7 +2836,7 @@ type GetJobRequest struct {
 
 func (x *GetJobRequest) Reset() {
 	*x = GetJobRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[35]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2664,7 +2848,7 @@ func (x *GetJobRequest) String() string {
 func (*GetJobRequest) ProtoMessage() {}
 
 func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[35]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2677,7 +2861,7 @@ func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobRequest.ProtoReflect.Descriptor instead.
 func (*GetJobRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{35}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetJobRequest) GetId() string {
@@ -2695,7 +2879,7 @@ type ListJobsRequest struct {
 
 func (x *ListJobsRequest) Reset() {
 	*x = ListJobsRequest{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[36]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2707,7 +2891,7 @@ func (x *ListJobsRequest) String() string {
 func (*ListJobsRequest) ProtoMessage() {}
 
 func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[36]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2720,7 +2904,7 @@ func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsRequest.ProtoReflect.Descriptor instead.
 func (*ListJobsRequest) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{36}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{39}
 }
 
 type FirmwareArtifact struct {
@@ -2737,7 +2921,7 @@ type FirmwareArtifact struct {
 
 func (x *FirmwareArtifact) Reset() {
 	*x = FirmwareArtifact{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[37]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2749,7 +2933,7 @@ func (x *FirmwareArtifact) String() string {
 func (*FirmwareArtifact) ProtoMessage() {}
 
 func (x *FirmwareArtifact) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[37]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2762,7 +2946,7 @@ func (x *FirmwareArtifact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareArtifact.ProtoReflect.Descriptor instead.
 func (*FirmwareArtifact) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{37}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *FirmwareArtifact) GetBoard() string {
@@ -2828,7 +3012,7 @@ type FirmwareJob struct {
 
 func (x *FirmwareJob) Reset() {
 	*x = FirmwareJob{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[38]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2840,7 +3024,7 @@ func (x *FirmwareJob) String() string {
 func (*FirmwareJob) ProtoMessage() {}
 
 func (x *FirmwareJob) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[38]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2853,7 +3037,7 @@ func (x *FirmwareJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareJob.ProtoReflect.Descriptor instead.
 func (*FirmwareJob) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{38}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *FirmwareJob) GetId() string {
@@ -2928,7 +3112,7 @@ type ListJobsResponse struct {
 
 func (x *ListJobsResponse) Reset() {
 	*x = ListJobsResponse{}
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[39]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2940,7 +3124,7 @@ func (x *ListJobsResponse) String() string {
 func (*ListJobsResponse) ProtoMessage() {}
 
 func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[39]
+	mi := &file_motioncore_engine_v1_engine_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2953,7 +3137,7 @@ func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListJobsResponse) Descriptor() ([]byte, []int) {
-	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{39}
+	return file_motioncore_engine_v1_engine_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListJobsResponse) GetJobs() []*FirmwareJob {
@@ -3011,7 +3195,7 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\n" +
 	"crc_errors\x18\x0f \x01(\x04R\tcrcErrors\x126\n" +
 	"\x15last_heartbeat_ms_ago\x18\x10 \x01(\x04H\x00R\x12lastHeartbeatMsAgo\x88\x01\x01B\x18\n" +
-	"\x16_last_heartbeat_ms_ago\"\xe1\x01\n" +
+	"\x16_last_heartbeat_ms_ago\"\xf9\x01\n" +
 	"\rAxisTelemetry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05homed\x18\x02 \x01(\bR\x05homed\x12\x18\n" +
@@ -3019,13 +3203,23 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\x12commanded_position\x18\x04 \x01(\x01R\x11commandedPosition\x12+\n" +
 	"\x11measured_position\x18\x05 \x01(\x01R\x10measuredPosition\x12\x1a\n" +
 	"\bvelocity\x18\x06 \x01(\x01R\bvelocity\x12\x18\n" +
-	"\aendstop\x18\a \x01(\bR\aendstop\"\x17\n" +
-	"\x15GetRobotConfigRequest\"\xa6\x01\n" +
+	"\aendstop\x18\a \x01(\bR\aendstop\x12\x16\n" +
+	"\x06homing\x18\b \x01(\bR\x06homing\"\x17\n" +
+	"\x15GetRobotConfigRequest\"\x93\x02\n" +
 	"\vRobotConfig\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aprofile\x18\x02 \x01(\tR\aprofile\x124\n" +
 	"\x04axes\x18\x03 \x03(\v2 .motioncore.engine.v1.AxisConfigR\x04axes\x123\n" +
-	"\x04mcus\x18\x04 \x03(\v2\x1f.motioncore.engine.v1.McuConfigR\x04mcus\"t\n" +
+	"\x04mcus\x18\x04 \x03(\v2\x1f.motioncore.engine.v1.McuConfigR\x04mcus\x12<\n" +
+	"\bhome_all\x18\x05 \x01(\v2!.motioncore.engine.v1.HomeAllPlanR\ahomeAll\x12-\n" +
+	"\x12collision_checking\x18\x06 \x01(\bR\x11collisionChecking\"\x8b\x01\n" +
+	"\vHomeAllPlan\x12:\n" +
+	"\x06groups\x18\x01 \x03(\v2\".motioncore.engine.v1.HomeAllGroupR\x06groups\x12\x1d\n" +
+	"\n" +
+	"start_pose\x18\x02 \x01(\tR\tstartPose\x12!\n" +
+	"\ffrom_profile\x18\x03 \x01(\bR\vfromProfile\"\"\n" +
+	"\fHomeAllGroup\x12\x12\n" +
+	"\x04axes\x18\x01 \x03(\tR\x04axes\"t\n" +
 	"\tMcuConfig\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05board\x18\x02 \x01(\tR\x05board\x12\x1c\n" +
@@ -3060,13 +3254,16 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\x04Vec3\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\f\n" +
-	"\x01z\x18\x03 \x01(\x01R\x01z\"\x81\x02\n" +
+	"\x01z\x18\x03 \x01(\x01R\x01z\"\xb1\x02\n" +
 	"\fAxisGeometry\x12\x16\n" +
 	"\x06parent\x18\x01 \x01(\tR\x06parent\x127\n" +
 	"\torigin_mm\x18\x02 \x01(\v2\x1a.motioncore.engine.v1.Vec3R\boriginMm\x12=\n" +
 	"\frotation_deg\x18\x03 \x01(\v2\x1a.motioncore.engine.v1.Vec3R\vrotationDeg\x12.\n" +
 	"\x04axis\x18\x04 \x01(\v2\x1a.motioncore.engine.v1.Vec3R\x04axis\x121\n" +
-	"\x06tip_mm\x18\x05 \x01(\v2\x1a.motioncore.engine.v1.Vec3R\x05tipMm\"\x14\n" +
+	"\x06tip_mm\x18\x05 \x01(\v2\x1a.motioncore.engine.v1.Vec3R\x05tipMm\x12 \n" +
+	"\tradius_mm\x18\x06 \x01(\x01H\x00R\bradiusMm\x88\x01\x01B\f\n" +
+	"\n" +
+	"_radius_mm\"\x14\n" +
 	"\x12ListPluginsRequest\"\xb2\x02\n" +
 	"\x06Plugin\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
@@ -3107,7 +3304,8 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\bvelocity\x18\x03 \x01(\x01H\x00R\bvelocity\x88\x01\x01B\v\n" +
 	"\t_velocity\"!\n" +
 	"\vHomeRequest\x12\x12\n" +
-	"\x04axis\x18\x01 \x01(\tR\x04axis\"\r\n" +
+	"\x04axis\x18\x01 \x01(\tR\x04axis\"\x10\n" +
+	"\x0eHomeAllRequest\"\r\n" +
 	"\vStopRequest\"\x16\n" +
 	"\x14EmergencyStopRequest\"\x13\n" +
 	"\x11ResetFaultRequest\"\x1b\n" +
@@ -3208,8 +3406,7 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\x10JOB_STATE_QUEUED\x10\x01\x12\x15\n" +
 	"\x11JOB_STATE_RUNNING\x10\x02\x12\x17\n" +
 	"\x13JOB_STATE_SUCCEEDED\x10\x03\x12\x14\n" +
-	"\x10JOB_STATE_FAILED\x10\x042\xe8\n" +
-	"\n" +
+	"\x10JOB_STATE_FAILED\x10\x042\xc0\v\n" +
 	"\rEngineService\x12Q\n" +
 	"\aGetInfo\x12$.motioncore.engine.v1.GetInfoRequest\x1a .motioncore.engine.v1.EngineInfo\x12T\n" +
 	"\tGetStatus\x12&.motioncore.engine.v1.GetStatusRequest\x1a\x1f.motioncore.engine.v1.Telemetry\x12`\n" +
@@ -3220,7 +3417,8 @@ const file_motioncore_engine_v1_engine_proto_rawDesc = "" +
 	"\aDisable\x12$.motioncore.engine.v1.DisableRequest\x1a%.motioncore.engine.v1.CommandResponse\x12N\n" +
 	"\x03Jog\x12 .motioncore.engine.v1.JogRequest\x1a%.motioncore.engine.v1.CommandResponse\x12T\n" +
 	"\x06MoveTo\x12#.motioncore.engine.v1.MoveToRequest\x1a%.motioncore.engine.v1.CommandResponse\x12P\n" +
-	"\x04Home\x12!.motioncore.engine.v1.HomeRequest\x1a%.motioncore.engine.v1.CommandResponse\x12P\n" +
+	"\x04Home\x12!.motioncore.engine.v1.HomeRequest\x1a%.motioncore.engine.v1.CommandResponse\x12V\n" +
+	"\aHomeAll\x12$.motioncore.engine.v1.HomeAllRequest\x1a%.motioncore.engine.v1.CommandResponse\x12P\n" +
 	"\x04Stop\x12!.motioncore.engine.v1.StopRequest\x1a%.motioncore.engine.v1.CommandResponse\x12b\n" +
 	"\rEmergencyStop\x12*.motioncore.engine.v1.EmergencyStopRequest\x1a%.motioncore.engine.v1.CommandResponse\x12\\\n" +
 	"\n" +
@@ -3249,7 +3447,7 @@ func file_motioncore_engine_v1_engine_proto_rawDescGZIP() []byte {
 }
 
 var file_motioncore_engine_v1_engine_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_motioncore_engine_v1_engine_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_motioncore_engine_v1_engine_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_motioncore_engine_v1_engine_proto_goTypes = []any{
 	(RobotState)(0),                   // 0: motioncore.engine.v1.RobotState
 	(FaultCode)(0),                    // 1: motioncore.engine.v1.FaultCode
@@ -3267,37 +3465,40 @@ var file_motioncore_engine_v1_engine_proto_goTypes = []any{
 	(*AxisTelemetry)(nil),             // 13: motioncore.engine.v1.AxisTelemetry
 	(*GetRobotConfigRequest)(nil),     // 14: motioncore.engine.v1.GetRobotConfigRequest
 	(*RobotConfig)(nil),               // 15: motioncore.engine.v1.RobotConfig
-	(*McuConfig)(nil),                 // 16: motioncore.engine.v1.McuConfig
-	(*AxisConfig)(nil),                // 17: motioncore.engine.v1.AxisConfig
-	(*Vec3)(nil),                      // 18: motioncore.engine.v1.Vec3
-	(*AxisGeometry)(nil),              // 19: motioncore.engine.v1.AxisGeometry
-	(*ListPluginsRequest)(nil),        // 20: motioncore.engine.v1.ListPluginsRequest
-	(*Plugin)(nil),                    // 21: motioncore.engine.v1.Plugin
-	(*ListPluginsResponse)(nil),       // 22: motioncore.engine.v1.ListPluginsResponse
-	(*StreamEventsRequest)(nil),       // 23: motioncore.engine.v1.StreamEventsRequest
-	(*LogEntry)(nil),                  // 24: motioncore.engine.v1.LogEntry
-	(*Event)(nil),                     // 25: motioncore.engine.v1.Event
-	(*CommandResponse)(nil),           // 26: motioncore.engine.v1.CommandResponse
-	(*EnableRequest)(nil),             // 27: motioncore.engine.v1.EnableRequest
-	(*DisableRequest)(nil),            // 28: motioncore.engine.v1.DisableRequest
-	(*JogRequest)(nil),                // 29: motioncore.engine.v1.JogRequest
-	(*MoveToRequest)(nil),             // 30: motioncore.engine.v1.MoveToRequest
-	(*HomeRequest)(nil),               // 31: motioncore.engine.v1.HomeRequest
-	(*StopRequest)(nil),               // 32: motioncore.engine.v1.StopRequest
-	(*EmergencyStopRequest)(nil),      // 33: motioncore.engine.v1.EmergencyStopRequest
-	(*ResetFaultRequest)(nil),         // 34: motioncore.engine.v1.ResetFaultRequest
-	(*DebugDisconnectMcuRequest)(nil), // 35: motioncore.engine.v1.DebugDisconnectMcuRequest
-	(*DebugFailPluginRequest)(nil),    // 36: motioncore.engine.v1.DebugFailPluginRequest
-	(*ListTargetsRequest)(nil),        // 37: motioncore.engine.v1.ListTargetsRequest
-	(*FirmwareTarget)(nil),            // 38: motioncore.engine.v1.FirmwareTarget
-	(*ListTargetsResponse)(nil),       // 39: motioncore.engine.v1.ListTargetsResponse
-	(*StartBuildRequest)(nil),         // 40: motioncore.engine.v1.StartBuildRequest
-	(*StartFlashRequest)(nil),         // 41: motioncore.engine.v1.StartFlashRequest
-	(*GetJobRequest)(nil),             // 42: motioncore.engine.v1.GetJobRequest
-	(*ListJobsRequest)(nil),           // 43: motioncore.engine.v1.ListJobsRequest
-	(*FirmwareArtifact)(nil),          // 44: motioncore.engine.v1.FirmwareArtifact
-	(*FirmwareJob)(nil),               // 45: motioncore.engine.v1.FirmwareJob
-	(*ListJobsResponse)(nil),          // 46: motioncore.engine.v1.ListJobsResponse
+	(*HomeAllPlan)(nil),               // 16: motioncore.engine.v1.HomeAllPlan
+	(*HomeAllGroup)(nil),              // 17: motioncore.engine.v1.HomeAllGroup
+	(*McuConfig)(nil),                 // 18: motioncore.engine.v1.McuConfig
+	(*AxisConfig)(nil),                // 19: motioncore.engine.v1.AxisConfig
+	(*Vec3)(nil),                      // 20: motioncore.engine.v1.Vec3
+	(*AxisGeometry)(nil),              // 21: motioncore.engine.v1.AxisGeometry
+	(*ListPluginsRequest)(nil),        // 22: motioncore.engine.v1.ListPluginsRequest
+	(*Plugin)(nil),                    // 23: motioncore.engine.v1.Plugin
+	(*ListPluginsResponse)(nil),       // 24: motioncore.engine.v1.ListPluginsResponse
+	(*StreamEventsRequest)(nil),       // 25: motioncore.engine.v1.StreamEventsRequest
+	(*LogEntry)(nil),                  // 26: motioncore.engine.v1.LogEntry
+	(*Event)(nil),                     // 27: motioncore.engine.v1.Event
+	(*CommandResponse)(nil),           // 28: motioncore.engine.v1.CommandResponse
+	(*EnableRequest)(nil),             // 29: motioncore.engine.v1.EnableRequest
+	(*DisableRequest)(nil),            // 30: motioncore.engine.v1.DisableRequest
+	(*JogRequest)(nil),                // 31: motioncore.engine.v1.JogRequest
+	(*MoveToRequest)(nil),             // 32: motioncore.engine.v1.MoveToRequest
+	(*HomeRequest)(nil),               // 33: motioncore.engine.v1.HomeRequest
+	(*HomeAllRequest)(nil),            // 34: motioncore.engine.v1.HomeAllRequest
+	(*StopRequest)(nil),               // 35: motioncore.engine.v1.StopRequest
+	(*EmergencyStopRequest)(nil),      // 36: motioncore.engine.v1.EmergencyStopRequest
+	(*ResetFaultRequest)(nil),         // 37: motioncore.engine.v1.ResetFaultRequest
+	(*DebugDisconnectMcuRequest)(nil), // 38: motioncore.engine.v1.DebugDisconnectMcuRequest
+	(*DebugFailPluginRequest)(nil),    // 39: motioncore.engine.v1.DebugFailPluginRequest
+	(*ListTargetsRequest)(nil),        // 40: motioncore.engine.v1.ListTargetsRequest
+	(*FirmwareTarget)(nil),            // 41: motioncore.engine.v1.FirmwareTarget
+	(*ListTargetsResponse)(nil),       // 42: motioncore.engine.v1.ListTargetsResponse
+	(*StartBuildRequest)(nil),         // 43: motioncore.engine.v1.StartBuildRequest
+	(*StartFlashRequest)(nil),         // 44: motioncore.engine.v1.StartFlashRequest
+	(*GetJobRequest)(nil),             // 45: motioncore.engine.v1.GetJobRequest
+	(*ListJobsRequest)(nil),           // 46: motioncore.engine.v1.ListJobsRequest
+	(*FirmwareArtifact)(nil),          // 47: motioncore.engine.v1.FirmwareArtifact
+	(*FirmwareJob)(nil),               // 48: motioncore.engine.v1.FirmwareJob
+	(*ListJobsResponse)(nil),          // 49: motioncore.engine.v1.ListJobsResponse
 }
 var file_motioncore_engine_v1_engine_proto_depIdxs = []int32{
 	1,  // 0: motioncore.engine.v1.Fault.code:type_name -> motioncore.engine.v1.FaultCode
@@ -3305,69 +3506,73 @@ var file_motioncore_engine_v1_engine_proto_depIdxs = []int32{
 	9,  // 2: motioncore.engine.v1.Telemetry.fault:type_name -> motioncore.engine.v1.Fault
 	12, // 3: motioncore.engine.v1.Telemetry.mcu:type_name -> motioncore.engine.v1.McuTelemetry
 	13, // 4: motioncore.engine.v1.Telemetry.axes:type_name -> motioncore.engine.v1.AxisTelemetry
-	17, // 5: motioncore.engine.v1.RobotConfig.axes:type_name -> motioncore.engine.v1.AxisConfig
-	16, // 6: motioncore.engine.v1.RobotConfig.mcus:type_name -> motioncore.engine.v1.McuConfig
-	2,  // 7: motioncore.engine.v1.AxisConfig.kind:type_name -> motioncore.engine.v1.JointKind
-	19, // 8: motioncore.engine.v1.AxisConfig.geometry:type_name -> motioncore.engine.v1.AxisGeometry
-	18, // 9: motioncore.engine.v1.AxisGeometry.origin_mm:type_name -> motioncore.engine.v1.Vec3
-	18, // 10: motioncore.engine.v1.AxisGeometry.rotation_deg:type_name -> motioncore.engine.v1.Vec3
-	18, // 11: motioncore.engine.v1.AxisGeometry.axis:type_name -> motioncore.engine.v1.Vec3
-	18, // 12: motioncore.engine.v1.AxisGeometry.tip_mm:type_name -> motioncore.engine.v1.Vec3
-	3,  // 13: motioncore.engine.v1.Plugin.state:type_name -> motioncore.engine.v1.PluginState
-	21, // 14: motioncore.engine.v1.ListPluginsResponse.plugins:type_name -> motioncore.engine.v1.Plugin
-	4,  // 15: motioncore.engine.v1.LogEntry.level:type_name -> motioncore.engine.v1.LogLevel
-	11, // 16: motioncore.engine.v1.Event.telemetry:type_name -> motioncore.engine.v1.Telemetry
-	24, // 17: motioncore.engine.v1.Event.log:type_name -> motioncore.engine.v1.LogEntry
-	38, // 18: motioncore.engine.v1.ListTargetsResponse.targets:type_name -> motioncore.engine.v1.FirmwareTarget
-	5,  // 19: motioncore.engine.v1.FirmwareJob.kind:type_name -> motioncore.engine.v1.JobKind
-	6,  // 20: motioncore.engine.v1.FirmwareJob.state:type_name -> motioncore.engine.v1.JobState
-	44, // 21: motioncore.engine.v1.FirmwareJob.artifact:type_name -> motioncore.engine.v1.FirmwareArtifact
-	45, // 22: motioncore.engine.v1.ListJobsResponse.jobs:type_name -> motioncore.engine.v1.FirmwareJob
-	7,  // 23: motioncore.engine.v1.EngineService.GetInfo:input_type -> motioncore.engine.v1.GetInfoRequest
-	10, // 24: motioncore.engine.v1.EngineService.GetStatus:input_type -> motioncore.engine.v1.GetStatusRequest
-	14, // 25: motioncore.engine.v1.EngineService.GetRobotConfig:input_type -> motioncore.engine.v1.GetRobotConfigRequest
-	20, // 26: motioncore.engine.v1.EngineService.ListPlugins:input_type -> motioncore.engine.v1.ListPluginsRequest
-	23, // 27: motioncore.engine.v1.EngineService.StreamEvents:input_type -> motioncore.engine.v1.StreamEventsRequest
-	27, // 28: motioncore.engine.v1.EngineService.Enable:input_type -> motioncore.engine.v1.EnableRequest
-	28, // 29: motioncore.engine.v1.EngineService.Disable:input_type -> motioncore.engine.v1.DisableRequest
-	29, // 30: motioncore.engine.v1.EngineService.Jog:input_type -> motioncore.engine.v1.JogRequest
-	30, // 31: motioncore.engine.v1.EngineService.MoveTo:input_type -> motioncore.engine.v1.MoveToRequest
-	31, // 32: motioncore.engine.v1.EngineService.Home:input_type -> motioncore.engine.v1.HomeRequest
-	32, // 33: motioncore.engine.v1.EngineService.Stop:input_type -> motioncore.engine.v1.StopRequest
-	33, // 34: motioncore.engine.v1.EngineService.EmergencyStop:input_type -> motioncore.engine.v1.EmergencyStopRequest
-	34, // 35: motioncore.engine.v1.EngineService.ResetFault:input_type -> motioncore.engine.v1.ResetFaultRequest
-	35, // 36: motioncore.engine.v1.EngineService.DebugDisconnectMcu:input_type -> motioncore.engine.v1.DebugDisconnectMcuRequest
-	36, // 37: motioncore.engine.v1.EngineService.DebugFailPlugin:input_type -> motioncore.engine.v1.DebugFailPluginRequest
-	37, // 38: motioncore.engine.v1.FirmwareService.ListTargets:input_type -> motioncore.engine.v1.ListTargetsRequest
-	40, // 39: motioncore.engine.v1.FirmwareService.StartBuild:input_type -> motioncore.engine.v1.StartBuildRequest
-	41, // 40: motioncore.engine.v1.FirmwareService.StartFlash:input_type -> motioncore.engine.v1.StartFlashRequest
-	42, // 41: motioncore.engine.v1.FirmwareService.GetJob:input_type -> motioncore.engine.v1.GetJobRequest
-	43, // 42: motioncore.engine.v1.FirmwareService.ListJobs:input_type -> motioncore.engine.v1.ListJobsRequest
-	8,  // 43: motioncore.engine.v1.EngineService.GetInfo:output_type -> motioncore.engine.v1.EngineInfo
-	11, // 44: motioncore.engine.v1.EngineService.GetStatus:output_type -> motioncore.engine.v1.Telemetry
-	15, // 45: motioncore.engine.v1.EngineService.GetRobotConfig:output_type -> motioncore.engine.v1.RobotConfig
-	22, // 46: motioncore.engine.v1.EngineService.ListPlugins:output_type -> motioncore.engine.v1.ListPluginsResponse
-	25, // 47: motioncore.engine.v1.EngineService.StreamEvents:output_type -> motioncore.engine.v1.Event
-	26, // 48: motioncore.engine.v1.EngineService.Enable:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 49: motioncore.engine.v1.EngineService.Disable:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 50: motioncore.engine.v1.EngineService.Jog:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 51: motioncore.engine.v1.EngineService.MoveTo:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 52: motioncore.engine.v1.EngineService.Home:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 53: motioncore.engine.v1.EngineService.Stop:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 54: motioncore.engine.v1.EngineService.EmergencyStop:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 55: motioncore.engine.v1.EngineService.ResetFault:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 56: motioncore.engine.v1.EngineService.DebugDisconnectMcu:output_type -> motioncore.engine.v1.CommandResponse
-	26, // 57: motioncore.engine.v1.EngineService.DebugFailPlugin:output_type -> motioncore.engine.v1.CommandResponse
-	39, // 58: motioncore.engine.v1.FirmwareService.ListTargets:output_type -> motioncore.engine.v1.ListTargetsResponse
-	45, // 59: motioncore.engine.v1.FirmwareService.StartBuild:output_type -> motioncore.engine.v1.FirmwareJob
-	45, // 60: motioncore.engine.v1.FirmwareService.StartFlash:output_type -> motioncore.engine.v1.FirmwareJob
-	45, // 61: motioncore.engine.v1.FirmwareService.GetJob:output_type -> motioncore.engine.v1.FirmwareJob
-	46, // 62: motioncore.engine.v1.FirmwareService.ListJobs:output_type -> motioncore.engine.v1.ListJobsResponse
-	43, // [43:63] is the sub-list for method output_type
-	23, // [23:43] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	19, // 5: motioncore.engine.v1.RobotConfig.axes:type_name -> motioncore.engine.v1.AxisConfig
+	18, // 6: motioncore.engine.v1.RobotConfig.mcus:type_name -> motioncore.engine.v1.McuConfig
+	16, // 7: motioncore.engine.v1.RobotConfig.home_all:type_name -> motioncore.engine.v1.HomeAllPlan
+	17, // 8: motioncore.engine.v1.HomeAllPlan.groups:type_name -> motioncore.engine.v1.HomeAllGroup
+	2,  // 9: motioncore.engine.v1.AxisConfig.kind:type_name -> motioncore.engine.v1.JointKind
+	21, // 10: motioncore.engine.v1.AxisConfig.geometry:type_name -> motioncore.engine.v1.AxisGeometry
+	20, // 11: motioncore.engine.v1.AxisGeometry.origin_mm:type_name -> motioncore.engine.v1.Vec3
+	20, // 12: motioncore.engine.v1.AxisGeometry.rotation_deg:type_name -> motioncore.engine.v1.Vec3
+	20, // 13: motioncore.engine.v1.AxisGeometry.axis:type_name -> motioncore.engine.v1.Vec3
+	20, // 14: motioncore.engine.v1.AxisGeometry.tip_mm:type_name -> motioncore.engine.v1.Vec3
+	3,  // 15: motioncore.engine.v1.Plugin.state:type_name -> motioncore.engine.v1.PluginState
+	23, // 16: motioncore.engine.v1.ListPluginsResponse.plugins:type_name -> motioncore.engine.v1.Plugin
+	4,  // 17: motioncore.engine.v1.LogEntry.level:type_name -> motioncore.engine.v1.LogLevel
+	11, // 18: motioncore.engine.v1.Event.telemetry:type_name -> motioncore.engine.v1.Telemetry
+	26, // 19: motioncore.engine.v1.Event.log:type_name -> motioncore.engine.v1.LogEntry
+	41, // 20: motioncore.engine.v1.ListTargetsResponse.targets:type_name -> motioncore.engine.v1.FirmwareTarget
+	5,  // 21: motioncore.engine.v1.FirmwareJob.kind:type_name -> motioncore.engine.v1.JobKind
+	6,  // 22: motioncore.engine.v1.FirmwareJob.state:type_name -> motioncore.engine.v1.JobState
+	47, // 23: motioncore.engine.v1.FirmwareJob.artifact:type_name -> motioncore.engine.v1.FirmwareArtifact
+	48, // 24: motioncore.engine.v1.ListJobsResponse.jobs:type_name -> motioncore.engine.v1.FirmwareJob
+	7,  // 25: motioncore.engine.v1.EngineService.GetInfo:input_type -> motioncore.engine.v1.GetInfoRequest
+	10, // 26: motioncore.engine.v1.EngineService.GetStatus:input_type -> motioncore.engine.v1.GetStatusRequest
+	14, // 27: motioncore.engine.v1.EngineService.GetRobotConfig:input_type -> motioncore.engine.v1.GetRobotConfigRequest
+	22, // 28: motioncore.engine.v1.EngineService.ListPlugins:input_type -> motioncore.engine.v1.ListPluginsRequest
+	25, // 29: motioncore.engine.v1.EngineService.StreamEvents:input_type -> motioncore.engine.v1.StreamEventsRequest
+	29, // 30: motioncore.engine.v1.EngineService.Enable:input_type -> motioncore.engine.v1.EnableRequest
+	30, // 31: motioncore.engine.v1.EngineService.Disable:input_type -> motioncore.engine.v1.DisableRequest
+	31, // 32: motioncore.engine.v1.EngineService.Jog:input_type -> motioncore.engine.v1.JogRequest
+	32, // 33: motioncore.engine.v1.EngineService.MoveTo:input_type -> motioncore.engine.v1.MoveToRequest
+	33, // 34: motioncore.engine.v1.EngineService.Home:input_type -> motioncore.engine.v1.HomeRequest
+	34, // 35: motioncore.engine.v1.EngineService.HomeAll:input_type -> motioncore.engine.v1.HomeAllRequest
+	35, // 36: motioncore.engine.v1.EngineService.Stop:input_type -> motioncore.engine.v1.StopRequest
+	36, // 37: motioncore.engine.v1.EngineService.EmergencyStop:input_type -> motioncore.engine.v1.EmergencyStopRequest
+	37, // 38: motioncore.engine.v1.EngineService.ResetFault:input_type -> motioncore.engine.v1.ResetFaultRequest
+	38, // 39: motioncore.engine.v1.EngineService.DebugDisconnectMcu:input_type -> motioncore.engine.v1.DebugDisconnectMcuRequest
+	39, // 40: motioncore.engine.v1.EngineService.DebugFailPlugin:input_type -> motioncore.engine.v1.DebugFailPluginRequest
+	40, // 41: motioncore.engine.v1.FirmwareService.ListTargets:input_type -> motioncore.engine.v1.ListTargetsRequest
+	43, // 42: motioncore.engine.v1.FirmwareService.StartBuild:input_type -> motioncore.engine.v1.StartBuildRequest
+	44, // 43: motioncore.engine.v1.FirmwareService.StartFlash:input_type -> motioncore.engine.v1.StartFlashRequest
+	45, // 44: motioncore.engine.v1.FirmwareService.GetJob:input_type -> motioncore.engine.v1.GetJobRequest
+	46, // 45: motioncore.engine.v1.FirmwareService.ListJobs:input_type -> motioncore.engine.v1.ListJobsRequest
+	8,  // 46: motioncore.engine.v1.EngineService.GetInfo:output_type -> motioncore.engine.v1.EngineInfo
+	11, // 47: motioncore.engine.v1.EngineService.GetStatus:output_type -> motioncore.engine.v1.Telemetry
+	15, // 48: motioncore.engine.v1.EngineService.GetRobotConfig:output_type -> motioncore.engine.v1.RobotConfig
+	24, // 49: motioncore.engine.v1.EngineService.ListPlugins:output_type -> motioncore.engine.v1.ListPluginsResponse
+	27, // 50: motioncore.engine.v1.EngineService.StreamEvents:output_type -> motioncore.engine.v1.Event
+	28, // 51: motioncore.engine.v1.EngineService.Enable:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 52: motioncore.engine.v1.EngineService.Disable:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 53: motioncore.engine.v1.EngineService.Jog:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 54: motioncore.engine.v1.EngineService.MoveTo:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 55: motioncore.engine.v1.EngineService.Home:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 56: motioncore.engine.v1.EngineService.HomeAll:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 57: motioncore.engine.v1.EngineService.Stop:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 58: motioncore.engine.v1.EngineService.EmergencyStop:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 59: motioncore.engine.v1.EngineService.ResetFault:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 60: motioncore.engine.v1.EngineService.DebugDisconnectMcu:output_type -> motioncore.engine.v1.CommandResponse
+	28, // 61: motioncore.engine.v1.EngineService.DebugFailPlugin:output_type -> motioncore.engine.v1.CommandResponse
+	42, // 62: motioncore.engine.v1.FirmwareService.ListTargets:output_type -> motioncore.engine.v1.ListTargetsResponse
+	48, // 63: motioncore.engine.v1.FirmwareService.StartBuild:output_type -> motioncore.engine.v1.FirmwareJob
+	48, // 64: motioncore.engine.v1.FirmwareService.StartFlash:output_type -> motioncore.engine.v1.FirmwareJob
+	48, // 65: motioncore.engine.v1.FirmwareService.GetJob:output_type -> motioncore.engine.v1.FirmwareJob
+	49, // 66: motioncore.engine.v1.FirmwareService.ListJobs:output_type -> motioncore.engine.v1.ListJobsResponse
+	46, // [46:67] is the sub-list for method output_type
+	25, // [25:46] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_motioncore_engine_v1_engine_proto_init() }
@@ -3377,21 +3582,22 @@ func file_motioncore_engine_v1_engine_proto_init() {
 	}
 	file_motioncore_engine_v1_engine_proto_msgTypes[4].OneofWrappers = []any{}
 	file_motioncore_engine_v1_engine_proto_msgTypes[5].OneofWrappers = []any{}
-	file_motioncore_engine_v1_engine_proto_msgTypes[10].OneofWrappers = []any{}
-	file_motioncore_engine_v1_engine_proto_msgTypes[18].OneofWrappers = []any{
+	file_motioncore_engine_v1_engine_proto_msgTypes[12].OneofWrappers = []any{}
+	file_motioncore_engine_v1_engine_proto_msgTypes[14].OneofWrappers = []any{}
+	file_motioncore_engine_v1_engine_proto_msgTypes[20].OneofWrappers = []any{
 		(*Event_Telemetry)(nil),
 		(*Event_Log)(nil),
 	}
-	file_motioncore_engine_v1_engine_proto_msgTypes[22].OneofWrappers = []any{}
-	file_motioncore_engine_v1_engine_proto_msgTypes[23].OneofWrappers = []any{}
-	file_motioncore_engine_v1_engine_proto_msgTypes[38].OneofWrappers = []any{}
+	file_motioncore_engine_v1_engine_proto_msgTypes[24].OneofWrappers = []any{}
+	file_motioncore_engine_v1_engine_proto_msgTypes[25].OneofWrappers = []any{}
+	file_motioncore_engine_v1_engine_proto_msgTypes[41].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_motioncore_engine_v1_engine_proto_rawDesc), len(file_motioncore_engine_v1_engine_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   40,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

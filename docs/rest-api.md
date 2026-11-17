@@ -21,6 +21,7 @@ derives robot state; every robot field below is relayed from the engine.
 | `not_found`, `unknown_axis`, `unknown_command` | 404 |
 | `method_not_allowed` (with `Allow` header) | 405 |
 | `invalid_state` | 409 |
+| `collision` | 409 |
 | `unsupported_media_type` | 415 |
 | `rate_limited` (with `Retry-After`) | 429 |
 | `mcu_error` | 502 |
@@ -112,6 +113,7 @@ Command names and params:
 | `jog` | `{"axis": "j1", "delta": 5.0, "velocity"?: 30.0}` | operator |
 | `move_to` | `{"axis": "j1", "position": -90.0, "velocity"?: 30.0}` | operator |
 | `home` | `{"axis": "j1"}` | operator |
+| `home_all` | `{}` | operator |
 
 A successful command response (`{}`) means the engine **accepted** the
 command, not that it has finished. For `estop` in particular, clients must
@@ -166,7 +168,8 @@ any. Slow clients are disconnected (close code 1013).
     "last_heartbeat_ms_ago": 12           // or null
   },
   "axes": [{"id": "j1", "homed": true, "enabled": true, "commanded_position": 45.0,
-            "measured_position": 44.98, "velocity": 0.0, "endstop": false}]
+            "measured_position": 44.98, "velocity": 0.0, "endstop": false,
+            "homing": false}]        // homing: this axis is searching for its switch (engine-api >= 1.2)
 }
 // fault codes: communication_lost queue_underrun segment_late limit_hit soft_limit
 //              homing_failed mcu_fault plugin_failed emergency_stop
@@ -189,9 +192,16 @@ any. Slow clients are disconnected (close code 1013).
       "origin_mm": [0.0, 0.0, 120.0],       // joint origin in the parent frame
       "rotation_deg": [0.0, 0.0, 0.0],      // fixed roll, pitch, yaw (about X, Y, Z, in that order)
       "axis": [0.0, 0.0, 1.0],              // unit rotation axis / slide direction in the joint frame
-      "tip_mm": [200.0, 0.0, 0.0]           // or null: end of this joint's link (e.g. tool flange), joint frame
+      "tip_mm": [200.0, 0.0, 0.0],          // or null: end of this joint's link (e.g. tool flange), joint frame
+      "radius_mm": 20.0                     // or null: link thickness of the collision model (engine-api >= 1.2)
     }
-  }]
+  }],
+  "home_all": {                             // or null (engine-api < 1.2): what the home_all command does
+    "groups": [["j1"]],                     // axes of a group home together; groups run in order
+    "start_pose": null,                     // or the pose the plan was designed for; show it before homing
+    "from_profile": false                   // false = default plan, one axis per group in profile order
+  },
+  "collision_checking": false               // true: once all axes are homed, colliding moves are refused (409 collision)
 }
 
 // Plugin

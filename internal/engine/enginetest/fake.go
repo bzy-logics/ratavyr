@@ -226,6 +226,11 @@ func (s *engineSrv) Home(ctx context.Context, r *enginev1.HomeRequest) (*enginev
 	return call(s.e, ctx, "Home", r, &enginev1.CommandResponse{})
 }
 
+// HomeAll implements EngineService.
+func (s *engineSrv) HomeAll(ctx context.Context, r *enginev1.HomeAllRequest) (*enginev1.CommandResponse, error) {
+	return call(s.e, ctx, "HomeAll", r, &enginev1.CommandResponse{})
+}
+
 // Stop implements EngineService.
 func (s *engineSrv) Stop(ctx context.Context, r *enginev1.StopRequest) (*enginev1.CommandResponse, error) {
 	return call(s.e, ctx, "Stop", r, &enginev1.CommandResponse{})

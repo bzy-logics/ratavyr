@@ -53,7 +53,7 @@ func StatusForCode(code string) int {
 		return http.StatusUnauthorized
 	case "not_found", "unknown_axis", "unknown_command":
 		return http.StatusNotFound
-	case "invalid_state":
+	case "invalid_state", "collision":
 		return http.StatusConflict
 	case "mcu_error":
 		return http.StatusBadGateway

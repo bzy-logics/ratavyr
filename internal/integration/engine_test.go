@@ -445,7 +445,76 @@ func TestGeometryIsRelayed(t *testing.T) {
 		}
 	}
 	_, b = s.req("GET", "/api/info", "", "")
-	if !strings.Contains(string(b), `"api_version":"1.1.0"`) {
+	if !strings.Contains(string(b), `"api_version":"1.2.0"`) {
 		t.Fatalf("info: %s", b)
 	}
+}
+
+func TestHomeAllAndCollisionOverREST(t *testing.T) {
+	s := setupProfile(t, "dummy-arm-virtual.toml")
+	_, b := s.req("GET", "/api/config", tokens.Viewer, "")
+	var cfg struct {
+		HomeAll *struct {
+			Groups [][]string `json:"groups"`
+		} `json:"home_all"`
+		CollisionChecking bool `json:"collision_checking"`
+	}
+	json.Unmarshal(b, &cfg)
+	if !cfg.CollisionChecking || cfg.HomeAll == nil || len(cfg.HomeAll.Groups) != 2 || len(cfg.HomeAll.Groups[0]) != 3 {
+		t.Fatalf("config: %s", b)
+	}
+	if code, ec := s.cmd(tokens.Viewer, "home_all", "{}"); code != 403 || ec != "forbidden" {
+		t.Fatalf("viewer home_all: %d %s", code, ec)
+	}
+	s.mustCmd("enable", "{}")
+	s.waitState("ready", 5*time.Second)
+	s.mustCmd("home_all", "{}")
+
+	// Several axes report homing at the same time.
+	sawGroup := false
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		_, b := s.req("GET", "/api/status", tokens.Viewer, "")
+		var st struct {
+			State string `json:"state"`
+			Axes  []struct {
+				Homed  bool `json:"homed"`
+				Homing bool `json:"homing"`
+			} `json:"axes"`
+		}
+		json.Unmarshal(b, &st)
+		n, homed := 0, 0
+		for _, a := range st.Axes {
+			if a.Homing {
+				n++
+			}
+			if a.Homed {
+				homed++
+			}
+		}
+		if n >= 2 {
+			sawGroup = true
+		}
+		if st.State == "ready" && homed == len(st.Axes) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !sawGroup {
+		t.Fatal("never saw a group of axes homing together")
+	}
+	s.waitFor("all homed", time.Second, func(t telemetry) bool {
+		for _, a := range t.Axes {
+			if !a.Homed {
+				return false
+			}
+		}
+		return t.State == "ready"
+	})
+
+	// Pitching the wrist into the upper arm is refused before anything moves.
+	if code, ec := s.cmd(tokens.Operator, "move_to", `{"axis":"j5","position":-120}`); code != 409 || ec != "collision" {
+		t.Fatalf("colliding move: %d %s", code, ec)
+	}
+	s.mustCmd("move_to", `{"axis":"j6","position":0}`)
 }

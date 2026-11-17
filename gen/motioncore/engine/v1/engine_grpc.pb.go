@@ -55,6 +55,7 @@ const (
 	EngineService_Jog_FullMethodName                = "/motioncore.engine.v1.EngineService/Jog"
 	EngineService_MoveTo_FullMethodName             = "/motioncore.engine.v1.EngineService/MoveTo"
 	EngineService_Home_FullMethodName               = "/motioncore.engine.v1.EngineService/Home"
+	EngineService_HomeAll_FullMethodName            = "/motioncore.engine.v1.EngineService/HomeAll"
 	EngineService_Stop_FullMethodName               = "/motioncore.engine.v1.EngineService/Stop"
 	EngineService_EmergencyStop_FullMethodName      = "/motioncore.engine.v1.EngineService/EmergencyStop"
 	EngineService_ResetFault_FullMethodName         = "/motioncore.engine.v1.EngineService/ResetFault"
@@ -79,6 +80,9 @@ type EngineServiceClient interface {
 	Jog(ctx context.Context, in *JogRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	MoveTo(ctx context.Context, in *MoveToRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	Home(ctx context.Context, in *HomeRequest, opts ...grpc.CallOption) (*CommandResponse, error)
+	// Run the robot's home-all plan: the axes of one group home at the same
+	// time, groups in order. Added in 1.2.0.
+	HomeAll(ctx context.Context, in *HomeAllRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	EmergencyStop(ctx context.Context, in *EmergencyStopRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	ResetFault(ctx context.Context, in *ResetFaultRequest, opts ...grpc.CallOption) (*CommandResponse, error)
@@ -205,6 +209,16 @@ func (c *engineServiceClient) Home(ctx context.Context, in *HomeRequest, opts ..
 	return out, nil
 }
 
+func (c *engineServiceClient) HomeAll(ctx context.Context, in *HomeAllRequest, opts ...grpc.CallOption) (*CommandResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommandResponse)
+	err := c.cc.Invoke(ctx, EngineService_HomeAll_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *engineServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*CommandResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CommandResponse)
@@ -272,6 +286,9 @@ type EngineServiceServer interface {
 	Jog(context.Context, *JogRequest) (*CommandResponse, error)
 	MoveTo(context.Context, *MoveToRequest) (*CommandResponse, error)
 	Home(context.Context, *HomeRequest) (*CommandResponse, error)
+	// Run the robot's home-all plan: the axes of one group home at the same
+	// time, groups in order. Added in 1.2.0.
+	HomeAll(context.Context, *HomeAllRequest) (*CommandResponse, error)
 	Stop(context.Context, *StopRequest) (*CommandResponse, error)
 	EmergencyStop(context.Context, *EmergencyStopRequest) (*CommandResponse, error)
 	ResetFault(context.Context, *ResetFaultRequest) (*CommandResponse, error)
@@ -318,6 +335,9 @@ func (UnimplementedEngineServiceServer) MoveTo(context.Context, *MoveToRequest) 
 }
 func (UnimplementedEngineServiceServer) Home(context.Context, *HomeRequest) (*CommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Home not implemented")
+}
+func (UnimplementedEngineServiceServer) HomeAll(context.Context, *HomeAllRequest) (*CommandResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HomeAll not implemented")
 }
 func (UnimplementedEngineServiceServer) Stop(context.Context, *StopRequest) (*CommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
@@ -528,6 +548,24 @@ func _EngineService_Home_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EngineService_HomeAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HomeAllRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EngineServiceServer).HomeAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EngineService_HomeAll_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EngineServiceServer).HomeAll(ctx, req.(*HomeAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _EngineService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StopRequest)
 	if err := dec(in); err != nil {
@@ -660,6 +698,10 @@ var EngineService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Home",
 			Handler:    _EngineService_Home_Handler,
+		},
+		{
+			MethodName: "HomeAll",
+			Handler:    _EngineService_HomeAll_Handler,
 		},
 		{
 			MethodName: "Stop",

@@ -175,6 +175,9 @@ var commands = map[string]command{
 		return discard(engine.Call(ctx, e, e.Engine.MoveTo,
 			&enginev1.MoveToRequest{Axis: *p.Axis, Position: *p.Position, Velocity: p.Velocity}))
 	},
+	"home_all": noParams(func(ctx context.Context, e *engine.Client) error {
+		return discard(engine.Call(ctx, e, e.Engine.HomeAll, &enginev1.HomeAllRequest{}))
+	}),
 	"home": func(ctx context.Context, e *engine.Client, raw json.RawMessage) error {
 		var p struct {
 			Axis *string `json:"axis"`
