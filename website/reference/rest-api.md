@@ -153,12 +153,21 @@ Live telemetry and logs: see [WebSocket](/reference/websocket).
     "steps_per_unit": 44.444, "mcu": "main", "mcu_channel": 0,
     "actuator": "org.motioncore.actuator.step_dir",
     "step_pin": "STEP0", "dir_pin": "DIR0", "enable_pin": "EN0",
-    "endstop_pin": "ENDSTOP0"               // or null
+    "endstop_pin": "ENDSTOP0",              // or null
+    "geometry": {                           // or null; engine-api >= 1.1
+      "parent": null,                       // parent axis id, null = robot base
+      "origin_mm": [0.0, 0.0, 120.0],       // joint origin in the parent frame
+      "rotation_deg": [0.0, 0.0, 0.0],      // fixed roll, pitch, yaw (about X, Y, Z, in that order)
+      "axis": [0.0, 0.0, 1.0],              // unit rotation axis / slide direction
+      "tip_mm": null                        // or [x, y, z]: end of this joint's link (e.g. tool flange)
+    }
   }]
 }
 ```
 
 `step_pin`, `dir_pin` and `enable_pin` are always non-empty; `endstop_pin` is `null` when the axis has no endstop.
+
+`geometry` places the joint in the robot's kinematic tree, following the URDF joint convention: `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`, where `frame(parent)` includes the parent's joint motion and `q` is in deg (revolute) or mm (prismatic). Either every axis has `geometry` or none does; it is `null` with engines older than API 1.1. It describes the machine for display only — commands still address one axis at a time. See [MotionCore: geometry](https://motioncore.bzy-logics.com/guide/configuration#_7-geometry-optional).
 
 ### Plugin
 
