@@ -105,6 +105,22 @@ type AxisConfig struct {
 	DirPin          string   `json:"dir_pin"`
 	EnablePin       string   `json:"enable_pin"`
 	EndstopPin      *string  `json:"endstop_pin"`
+	// Geometry is the joint's kinematic placement; null when the robot
+	// profile defines none (engine-api >= 1.1).
+	Geometry *AxisGeometry `json:"geometry"`
+}
+
+// AxisGeometry is a URDF-style joint placement:
+// frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis).
+type AxisGeometry struct {
+	// Parent axis id; null = mounted on the robot base.
+	Parent      *string    `json:"parent"`
+	OriginMM    [3]float64 `json:"origin_mm"`
+	RotationDeg [3]float64 `json:"rotation_deg"`
+	Axis        [3]float64 `json:"axis"`
+	// TipMM is the end of this joint's link (e.g. the tool flange) in its
+	// joint frame; null when not configured.
+	TipMM *[3]float64 `json:"tip_mm"`
 }
 
 // Plugin is a loaded plugin.
@@ -305,6 +321,19 @@ func FromRobotConfig(c *enginev1.RobotConfig) RobotConfig {
 		if a.HomePosition != nil {
 			v := *a.HomePosition
 			ac.HomePosition = &v
+		}
+		if g := a.GetGeometry(); g != nil {
+			v3 := func(v *enginev1.Vec3) [3]float64 { return [3]float64{v.GetX(), v.GetY(), v.GetZ()} }
+			ac.Geometry = &AxisGeometry{
+				Parent:      nonEmpty(g.GetParent()),
+				OriginMM:    v3(g.GetOriginMm()),
+				RotationDeg: v3(g.GetRotationDeg()),
+				Axis:        v3(g.GetAxis()),
+			}
+			if t := g.GetTipMm(); t != nil {
+				tip := v3(t)
+				ac.Geometry.TipMM = &tip
+			}
 		}
 		out.Axes = append(out.Axes, ac)
 	}

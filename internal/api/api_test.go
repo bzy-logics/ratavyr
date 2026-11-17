@@ -208,8 +208,11 @@ func TestConfigAndPluginsMapping(t *testing.T) {
 				Axes: []*enginev1.AxisConfig{
 					{Id: "j1", Name: "Base", Kind: enginev1.JointKind_JOINT_KIND_REVOLUTE, Unit: "deg", Min: -170, Max: 170,
 						MaxVelocity: 90, MaxAcceleration: 360, HomePosition: ptr(-170.0), StepsPerUnit: 44.444, Mcu: "main",
-						Actuator: "org.motioncore.actuator.step_dir", StepPin: "STEP0", DirPin: "DIR0", EnablePin: "EN0", EndstopPin: "ENDSTOP0"},
-					{Id: "z", Kind: enginev1.JointKind_JOINT_KIND_PRISMATIC, Unit: "mm", McuChannel: 1},
+						Actuator: "org.motioncore.actuator.step_dir", StepPin: "STEP0", DirPin: "DIR0", EnablePin: "EN0", EndstopPin: "ENDSTOP0",
+						Geometry: &enginev1.AxisGeometry{OriginMm: &enginev1.Vec3{Z: 120}, Axis: &enginev1.Vec3{Z: 1}}},
+					{Id: "z", Kind: enginev1.JointKind_JOINT_KIND_PRISMATIC, Unit: "mm", McuChannel: 1,
+						Geometry: &enginev1.AxisGeometry{Parent: "j1", OriginMm: &enginev1.Vec3{X: 250}, RotationDeg: &enginev1.Vec3{Y: 90}, Axis: &enginev1.Vec3{X: 1}, TipMm: &enginev1.Vec3{X: 50}}},
+					{Id: "plain", Unit: "deg"},
 				},
 			}, nil
 		case "ListPlugins":
@@ -227,10 +230,15 @@ func TestConfigAndPluginsMapping(t *testing.T) {
 	 "axes":[
 	  {"id":"j1","name":"Base","kind":"revolute","unit":"deg","min":-170,"max":170,"max_velocity":90,"max_acceleration":360,
 	   "home_position":-170,"steps_per_unit":44.444,"mcu":"main","mcu_channel":0,"actuator":"org.motioncore.actuator.step_dir",
-	   "step_pin":"STEP0","dir_pin":"DIR0","enable_pin":"EN0","endstop_pin":"ENDSTOP0"},
+	   "step_pin":"STEP0","dir_pin":"DIR0","enable_pin":"EN0","endstop_pin":"ENDSTOP0",
+	   "geometry":{"parent":null,"origin_mm":[0,0,120],"rotation_deg":[0,0,0],"axis":[0,0,1],"tip_mm":null}},
 	  {"id":"z","name":"","kind":"prismatic","unit":"mm","min":0,"max":0,"max_velocity":0,"max_acceleration":0,
 	   "home_position":null,"steps_per_unit":0,"mcu":"","mcu_channel":1,"actuator":"",
-	   "step_pin":"","dir_pin":"","enable_pin":"","endstop_pin":null}]}`)
+	   "step_pin":"","dir_pin":"","enable_pin":"","endstop_pin":null,
+	   "geometry":{"parent":"j1","origin_mm":[250,0,0],"rotation_deg":[0,90,0],"axis":[1,0,0],"tip_mm":[50,0,0]}},
+	  {"id":"plain","name":"","kind":"unspecified","unit":"deg","min":0,"max":0,"max_velocity":0,"max_acceleration":0,
+	   "home_position":null,"steps_per_unit":0,"mcu":"","mcu_channel":0,"actuator":"",
+	   "step_pin":"","dir_pin":"","enable_pin":"","endstop_pin":null,"geometry":null}]}`)
 
 	_, b = do(t, "GET", e.srv.URL+"/api/plugins", "")
 	assertJSON(t, "plugins", b, `[

@@ -183,7 +183,14 @@ any. Slow clients are disconnected (close code 1013).
     "steps_per_unit": 44.444, "mcu": "main", "mcu_channel": 0,
     "actuator": "org.motioncore.actuator.step_dir",
     "step_pin": "STEP0", "dir_pin": "DIR0", "enable_pin": "EN0",
-    "endstop_pin": "ENDSTOP0"               // or null
+    "endstop_pin": "ENDSTOP0",              // or null
+    "geometry": {                           // or null (profile without geometry; engine-api < 1.1)
+      "parent": null,                       // parent axis id, null = robot base
+      "origin_mm": [0.0, 0.0, 120.0],       // joint origin in the parent frame
+      "rotation_deg": [0.0, 0.0, 0.0],      // fixed roll, pitch, yaw (about X, Y, Z, in that order)
+      "axis": [0.0, 0.0, 1.0],              // unit rotation axis / slide direction in the joint frame
+      "tip_mm": [200.0, 0.0, 0.0]           // or null: end of this joint's link (e.g. tool flange), joint frame
+    }
   }]
 }
 
@@ -220,6 +227,11 @@ any. Slow clients are disconnected (close code 1013).
   it only works when the robot has exactly one MCU.
 * **401 responses** use the error envelope with code `unauthorized` and carry
   `WWW-Authenticate: Bearer`.
+* **Geometry** follows the URDF joint convention:
+  `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`,
+  where `frame(parent)` includes the parent's joint motion (`q` in deg for
+  revolute, mm for prismatic). Either every axis has `geometry` or none has.
+  It describes the machine for display; it does not enable coordinated moves.
 * **`engine_error`** in `/api/info` explains why the engine is not
   connected, e.g. `incompatible engine api_version "2.0.0" (this server
   requires 1.x)` or the last connection error; `null` while connected.

@@ -81,7 +81,9 @@ type stack struct {
 	srv *httptest.Server
 }
 
-func setup(t *testing.T) *stack {
+func setup(t *testing.T) *stack { return setupProfile(t, "single-axis-virtual.toml") }
+
+func setupProfile(t *testing.T, profile string) *stack {
 	bin, repo := os.Getenv("MOTIONCORE_BIN"), os.Getenv("MOTIONCORE_REPO")
 	if bin == "" || repo == "" {
 		t.Skip("set MOTIONCORE_BIN and MOTIONCORE_REPO to run integration tests")
@@ -93,7 +95,7 @@ func setup(t *testing.T) *stack {
 			*p = filepath.Join("..", "..", *p)
 		}
 	}
-	ep := &engineProc{t: t, bin: bin, repo: repo, cfg: filepath.Join(repo, "robot-profiles", "single-axis-virtual.toml"), addr: freePort(t)}
+	ep := &engineProc{t: t, bin: bin, repo: repo, cfg: filepath.Join(repo, "robot-profiles", profile), addr: freePort(t)}
 	ep.start()
 	cli, err := engine.New(engine.Options{Target: ep.addr, MinBackoff: 50 * time.Millisecond, MaxBackoff: 300 * time.Millisecond})
 	if err != nil {
@@ -400,5 +402,50 @@ func TestFirmwareAPIAgainstEngine(t *testing.T) {
 	}
 	if code, _ := s.req("GET", "/api/firmware/jobs", tokens.Viewer, ""); code != 200 {
 		t.Fatalf("jobs: %d", code)
+	}
+}
+
+func TestGeometryIsRelayed(t *testing.T) {
+	s := setupProfile(t, "rail-arm-virtual.toml")
+	code, b := s.req("GET", "/api/config", tokens.Viewer, "")
+	if code != 200 {
+		t.Fatalf("config: %d %s", code, b)
+	}
+	var cfg struct {
+		Axes []struct {
+			ID       string `json:"id"`
+			Geometry *struct {
+				Parent   *string     `json:"parent"`
+				OriginMM [3]float64  `json:"origin_mm"`
+				Axis     [3]float64  `json:"axis"`
+				TipMM    *[3]float64 `json:"tip_mm"`
+			} `json:"geometry"`
+		} `json:"axes"`
+	}
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, a := range cfg.Axes {
+		if a.Geometry == nil {
+			t.Fatalf("axis %s without geometry: %s", a.ID, b)
+		}
+		parent := "<base>"
+		if a.Geometry.Parent != nil {
+			parent = *a.Geometry.Parent
+		}
+		got[a.ID] = parent
+	}
+	if got["x"] != "<base>" || got["j1"] != "x" || got["j2"] != "j1" {
+		t.Fatalf("kinematic tree %v", got)
+	}
+	for _, a := range cfg.Axes {
+		if (a.ID == "j2") != (a.Geometry.TipMM != nil) {
+			t.Fatalf("tip_mm on %s: %v", a.ID, a.Geometry.TipMM)
+		}
+	}
+	_, b = s.req("GET", "/api/info", "", "")
+	if !strings.Contains(string(b), `"api_version":"1.1.0"`) {
+		t.Fatalf("info: %s", b)
 	}
 }

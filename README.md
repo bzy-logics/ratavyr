@@ -137,7 +137,7 @@ gen/                 generated gRPC bindings (committed, do not edit)
 
 Compatibility: **engine-api 1.x** (`motioncore.engine.v1`). The contract is
 pinned in [`contract.lock`](contract.lock): source repo, tag
-(`engine-api/v1.0.2`), commit, proto path and its sha256. No copy of the proto is
+(`engine-api/v1.1.0`, adds axis geometry; not yet tagged), commit, proto path and its sha256. No copy of the proto is
 kept in this repo.
 
 ```sh
