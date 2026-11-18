@@ -40,5 +40,5 @@ These need new engine functionality first. ratavyr does not fake them.
 - **Firmware verification** is CLI-only (`motioncore firmware verify`).
 - **Firmware job progress** is polled (`GET /api/firmware/jobs/{id}`); the engine's event stream does not carry job updates.
 - **One MCU per robot** in telemetry (engine-api v1).
-- **Coordinated multi-axis motion** is not offered by the engine yet; commands address one axis at a time.
+- **Joint-space motion only.** `move_j` moves several joints together; Cartesian (straight tool path) moves are not offered by the engine.
 - **Roles are per token.** There are no user accounts, and tokens can only be rotated by restarting.

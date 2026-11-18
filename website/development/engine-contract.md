@@ -2,7 +2,7 @@
 
 ratavyr talks to the engine through gRPC bindings generated from the **engine API contract**, which is owned and versioned by motioncore: `crates/engine-api/proto/motioncore/engine/v1/engine.proto`, released as git tags `engine-api/v0.MINOR.PATCH`. See [motioncore: engine gRPC API](https://motioncore.bzy-logics.com/reference/engine-api) and [contracts & versioning](https://motioncore.bzy-logics.com/internals/versioning).
 
-Compatibility: **engine-api 0.1.x** (`motioncore.engine.v1`). At every connect, ratavyr calls `GetInfo` and refuses an engine whose `api_version` is not `0.1.x`. While MotionCore is pre-1.0, patch releases are additive and minor releases may break clients, so ratavyr accepts only the `0.MINOR` it was built against (`SupportedAPIMinor` in `internal/engine/client.go`).
+Compatibility: **engine-api 0.2.x** (`motioncore.engine.v1`). At every connect, ratavyr calls `GetInfo` and refuses an engine whose `api_version` is not `0.2.x`. While MotionCore is pre-1.0, patch releases are additive and minor releases may break clients, so ratavyr accepts only the `0.MINOR` it was built against (`SupportedAPIMinor` in `internal/engine/client.go`).
 
 ## No copy of the proto
 

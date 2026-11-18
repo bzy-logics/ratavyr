@@ -59,7 +59,7 @@ See [Authentication & roles](/guide/authentication). In short: send `Authorizati
 | POST | `/api/firmware/flashes` | `{"build_job_id": string, "confirm": true}` | `202` `FirmwareJob` |
 | GET | `/api/ws` | – | WebSocket (below) |
 
-`engine_error` in `/api/info` explains why the engine is not connected — for example `incompatible engine api_version "0.2.0" (this server requires 0.1.x)` — and is `null` while connected.
+`engine_error` in `/api/info` explains why the engine is not connected — for example `incompatible engine api_version "0.1.4" (this server requires 0.2.x)` — and is `null` while connected.
 
 ### Commands
 
@@ -73,6 +73,7 @@ See [Authentication & roles](/guide/authentication). In short: send `Authorizati
 | `move_to` | `{"axis":"j1","position":-90.0,"velocity"?:30.0}` | operator |
 | `home` | `{"axis":"j1"}` | operator |
 | `home_all` | `{}` | operator |
+| `move_j` | `{"targets":{"j1":30.0,"j2":-10.0},"speed_scale"?:0.5}` | operator |
 
 A `{}` response means the engine **accepted** the command, not that it has finished. For `estop`, wait for telemetry with `"state": "emergency_stopped"` before showing the stop as confirmed. A software emergency stop never replaces a hardware E-stop circuit.
 
@@ -80,6 +81,14 @@ A `{}` response means the engine **accepted** the command, not that it has finis
 TOKEN=...
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
      -d '{"axis":"j1","delta":5}' http://127.0.0.1:8080/api/commands/jog
+```
+
+`move_j` (engine API 0.2 or newer) is a coordinated joint move: every axis in `targets` starts and finishes at the same time, on a straight line in joint space; axes not listed hold. All listed axes must be homed. `speed_scale` (0 < scale ≤ 1, default 1) scales every axis' velocity limit. ratavyr checks the shape (1–32 targets, valid axis ids, `speed_scale` range → `400 bad_request`) and sends the targets sorted by axis id; the engine checks the rest: `not_homed`, `validation_failed` (soft limits), `collision` (409, the whole path is checked when the profile has link radii) or `invalid_state`. See [MotionCore: coordinated joint moves](https://motioncore.bzy-logics.com/guide/motion#coordinated-joint-moves-movej).
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"targets":{"j1":60,"j2":30,"j3":120,"j4":90,"j5":-60,"j6":180},"speed_scale":0.5}' \
+     http://127.0.0.1:8080/api/commands/move_j
 ```
 
 ### Firmware
@@ -176,7 +185,7 @@ Live telemetry and logs: see [WebSocket](/reference/websocket).
 
 `step_pin`, `dir_pin` and `enable_pin` are always non-empty; `endstop_pin` is `null` when the axis has no endstop.
 
-`geometry` places the joint in the robot's kinematic tree, following the URDF joint convention: `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`, where `frame(parent)` includes the parent's joint motion and `q` is in deg (revolute) or mm (prismatic). Either every axis has `geometry` or none does; it is `null` with engines older than API 0.1.3. Commands still address one axis at a time. See [MotionCore: geometry](https://motioncore.bzy-logics.com/guide/configuration#_7-geometry-optional).
+`geometry` places the joint in the robot's kinematic tree, following the URDF joint convention: `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`, where `frame(parent)` includes the parent's joint motion and `q` is in deg (revolute) or mm (prismatic). Either every axis has `geometry` or none does; it is `null` with engines older than API 0.1.3. Geometry is not needed for `move_j`, which plans in joint space. See [MotionCore: geometry](https://motioncore.bzy-logics.com/guide/configuration#_7-geometry-optional).
 
 `home_all` describes what the `home_all` command does: the axes of one group home at the same time, and the groups run in order. Show `start_pose` to the operator before sending it: the engine cannot check homing paths, because joint positions are unknown until each switch triggers. When `collision_checking` is true, the engine models each link as a capsule of `radius_mm` and, once every axis is homed, refuses `jog` and `move_to` commands that would bring links within 2 mm of each other or of the floor, with `409 collision`. See [MotionCore: collision checking](https://motioncore.bzy-logics.com/guide/configuration#collision-checking).
 

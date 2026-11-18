@@ -445,7 +445,7 @@ func TestGeometryIsRelayed(t *testing.T) {
 		}
 	}
 	_, b = s.req("GET", "/api/info", "", "")
-	if !strings.Contains(string(b), `"api_version":"0.1.4"`) {
+	if !strings.Contains(string(b), `"api_version":"0.2.0"`) {
 		t.Fatalf("info: %s", b)
 	}
 }
@@ -517,4 +517,65 @@ func TestHomeAllAndCollisionOverREST(t *testing.T) {
 		t.Fatalf("colliding move: %d %s", code, ec)
 	}
 	s.mustCmd("move_to", `{"axis":"j6","position":0}`)
+}
+
+// TestMoveJOverREST drives a six-axis coordinated move through the gateway
+// against the real engine and its simulated MCU.
+func TestMoveJOverREST(t *testing.T) {
+	s := setupProfile(t, "dummy-arm-virtual.toml")
+	s.mustCmd("enable", "{}")
+	s.waitState("ready", 5*time.Second)
+	goal := `{"targets":{"j1":-30,"j2":20,"j3":120,"j4":-60,"j5":40,"j6":-540}}`
+	if code, ec := s.cmd(tokens.Operator, "move_j", goal); code != 400 || ec != "not_homed" {
+		t.Fatalf("move_j before homing: %d %s", code, ec)
+	}
+	if code, ec := s.cmd(tokens.Viewer, "move_j", goal); code != 403 || ec != "forbidden" {
+		t.Fatalf("viewer move_j: %d %s", code, ec)
+	}
+	s.mustCmd("home_all", "{}")
+	s.waitFor("all homed", 60*time.Second, func(t telemetry) bool {
+		for _, a := range t.Axes {
+			if !a.Homed {
+				return false
+			}
+		}
+		return t.State == "ready"
+	})
+	if code, ec := s.cmd(tokens.Operator, "move_j", `{"targets":{"j2":95}}`); code != 400 || ec != "validation_failed" {
+		t.Fatalf("out-of-limits move_j: %d %s", code, ec)
+	}
+	s.mustCmd("move_j", goal)
+
+	// All six axes are moving at the same time.
+	want := map[string]float64{"j1": -30, "j2": 20, "j3": 120, "j4": -60, "j5": 40, "j6": -540}
+	start := map[string]float64{"j1": -170, "j2": -73, "j3": 180, "j4": -180, "j5": 120, "j6": -720}
+	sawAll := false
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		st, ok := s.status()
+		if ok {
+			moving := 0
+			for _, a := range st.Axes {
+				if math.Abs(a.Measured-start[a.ID]) > 1 && math.Abs(a.Measured-want[a.ID]) > 1 {
+					moving++
+				}
+			}
+			if moving == 6 {
+				sawAll = true
+			}
+			if sawAll && st.State == "ready" {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !sawAll {
+		t.Fatal("never saw all six axes between start and target at once")
+	}
+	st := s.waitState("ready", time.Second)
+	for _, a := range st.Axes {
+		if math.Abs(a.Measured-want[a.ID]) > 0.01 {
+			t.Errorf("%s at %v, want %v", a.ID, a.Measured, want[a.ID])
+		}
+	}
 }

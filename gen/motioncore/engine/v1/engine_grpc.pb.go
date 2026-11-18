@@ -56,6 +56,7 @@ const (
 	EngineService_Disable_FullMethodName            = "/motioncore.engine.v1.EngineService/Disable"
 	EngineService_Jog_FullMethodName                = "/motioncore.engine.v1.EngineService/Jog"
 	EngineService_MoveTo_FullMethodName             = "/motioncore.engine.v1.EngineService/MoveTo"
+	EngineService_MoveJ_FullMethodName              = "/motioncore.engine.v1.EngineService/MoveJ"
 	EngineService_Home_FullMethodName               = "/motioncore.engine.v1.EngineService/Home"
 	EngineService_HomeAll_FullMethodName            = "/motioncore.engine.v1.EngineService/HomeAll"
 	EngineService_Stop_FullMethodName               = "/motioncore.engine.v1.EngineService/Stop"
@@ -81,6 +82,10 @@ type EngineServiceClient interface {
 	Disable(ctx context.Context, in *DisableRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	Jog(ctx context.Context, in *JogRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	MoveTo(ctx context.Context, in *MoveToRequest, opts ...grpc.CallOption) (*CommandResponse, error)
+	// Coordinated joint move: every listed axis starts and finishes at the same
+	// time on a straight line in joint space; unlisted axes hold. Every listed
+	// axis must be homed. Added in 0.2.0.
+	MoveJ(ctx context.Context, in *MoveJRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	Home(ctx context.Context, in *HomeRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	// Run the robot's home-all plan: the axes of one group home at the same
 	// time, groups in order. Added in 0.1.4.
@@ -201,6 +206,16 @@ func (c *engineServiceClient) MoveTo(ctx context.Context, in *MoveToRequest, opt
 	return out, nil
 }
 
+func (c *engineServiceClient) MoveJ(ctx context.Context, in *MoveJRequest, opts ...grpc.CallOption) (*CommandResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommandResponse)
+	err := c.cc.Invoke(ctx, EngineService_MoveJ_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *engineServiceClient) Home(ctx context.Context, in *HomeRequest, opts ...grpc.CallOption) (*CommandResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CommandResponse)
@@ -287,6 +302,10 @@ type EngineServiceServer interface {
 	Disable(context.Context, *DisableRequest) (*CommandResponse, error)
 	Jog(context.Context, *JogRequest) (*CommandResponse, error)
 	MoveTo(context.Context, *MoveToRequest) (*CommandResponse, error)
+	// Coordinated joint move: every listed axis starts and finishes at the same
+	// time on a straight line in joint space; unlisted axes hold. Every listed
+	// axis must be homed. Added in 0.2.0.
+	MoveJ(context.Context, *MoveJRequest) (*CommandResponse, error)
 	Home(context.Context, *HomeRequest) (*CommandResponse, error)
 	// Run the robot's home-all plan: the axes of one group home at the same
 	// time, groups in order. Added in 0.1.4.
@@ -334,6 +353,9 @@ func (UnimplementedEngineServiceServer) Jog(context.Context, *JogRequest) (*Comm
 }
 func (UnimplementedEngineServiceServer) MoveTo(context.Context, *MoveToRequest) (*CommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveTo not implemented")
+}
+func (UnimplementedEngineServiceServer) MoveJ(context.Context, *MoveJRequest) (*CommandResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveJ not implemented")
 }
 func (UnimplementedEngineServiceServer) Home(context.Context, *HomeRequest) (*CommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Home not implemented")
@@ -532,6 +554,24 @@ func _EngineService_MoveTo_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EngineService_MoveJ_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveJRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EngineServiceServer).MoveJ(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EngineService_MoveJ_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EngineServiceServer).MoveJ(ctx, req.(*MoveJRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _EngineService_Home_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HomeRequest)
 	if err := dec(in); err != nil {
@@ -696,6 +736,10 @@ var EngineService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MoveTo",
 			Handler:    _EngineService_MoveTo_Handler,
+		},
+		{
+			MethodName: "MoveJ",
+			Handler:    _EngineService_MoveJ_Handler,
 		},
 		{
 			MethodName: "Home",

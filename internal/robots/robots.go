@@ -35,6 +35,9 @@ func RoleFor(command string) auth.Role {
 // MaxAxisIDLength bounds axis identifiers in requests.
 const MaxAxisIDLength = 64
 
+// MaxJointTargets bounds the axes of one move_j command.
+const MaxJointTargets = 32
+
 // Handler serves /api/status, /api/config and /api/commands/{name}.
 type Handler struct {
 	Engine *engine.Client
@@ -174,6 +177,37 @@ var commands = map[string]command{
 		}
 		return discard(engine.Call(ctx, e, e.Engine.MoveTo,
 			&enginev1.MoveToRequest{Axis: *p.Axis, Position: *p.Position, Velocity: p.Velocity}))
+	},
+	"move_j": func(ctx context.Context, e *engine.Client, raw json.RawMessage) error {
+		var p struct {
+			Targets    map[string]float64 `json:"targets"`
+			SpeedScale *float64           `json:"speed_scale"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return err
+		}
+		if len(p.Targets) == 0 {
+			return badParams(`"targets" must map at least one axis to a position`)
+		}
+		if len(p.Targets) > MaxJointTargets {
+			return badParams(`"targets" lists more than %d axes`, MaxJointTargets)
+		}
+		if s := p.SpeedScale; s != nil && !(*s > 0 && *s <= 1) {
+			return badParams(`"speed_scale" must be in (0, 1]`)
+		}
+		axes := make([]string, 0, len(p.Targets))
+		for a := range p.Targets {
+			axes = append(axes, a)
+		}
+		sort.Strings(axes)
+		req := &enginev1.MoveJRequest{SpeedScale: p.SpeedScale}
+		for _, a := range axes {
+			if err := requireAxis(&a); err != nil {
+				return err
+			}
+			req.Targets = append(req.Targets, &enginev1.JointTarget{Axis: a, Position: p.Targets[a]})
+		}
+		return discard(engine.Call(ctx, e, e.Engine.MoveJ, req))
 	},
 	"home_all": noParams(func(ctx context.Context, e *engine.Client) error {
 		return discard(engine.Call(ctx, e, e.Engine.HomeAll, &enginev1.HomeAllRequest{}))

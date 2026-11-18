@@ -30,7 +30,7 @@ import (
 // patch releases are additive.
 const (
 	SupportedAPIMajor = 0
-	SupportedAPIMinor = 1
+	SupportedAPIMinor = 2
 )
 
 // EventType distinguishes subscriber events.

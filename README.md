@@ -101,7 +101,7 @@ go test -race ./...           # needs cgo (CI runs it on Linux)
 ```
 
 Integration tests run against the **real** engine with its virtual MCU
-(enable, home, home all, jog, move, stop, E-stop, fault injection and reset, engine
+(enable, home, home all, jog, move, joint move, stop, E-stop, fault injection and reset, engine
 loss and recovery, firmware API, roles):
 
 ```sh
@@ -135,10 +135,10 @@ gen/                 generated gRPC bindings (committed, do not edit)
 
 ## Engine contract and generated code
 
-Compatibility: **engine-api 0.1.x** (`motioncore.engine.v1`). While pre-1.0,
+Compatibility: **engine-api 0.2.x** (`motioncore.engine.v1`). While pre-1.0,
 an engine is accepted only with the same `0.MINOR`: patch releases are
 additive, minor releases may break clients. The contract is pinned in
-[`contract.lock`](contract.lock): source repo, tag (`engine-api/v0.1.4`),
+[`contract.lock`](contract.lock): source repo, tag (`engine-api/v0.2.0`, adds coordinated joint moves),
 commit, proto path and its sha256. No copy of the proto is kept in this repo.
 
 ```sh
@@ -171,8 +171,9 @@ These need new engine functionality first; this server does not fake them:
 * **Firmware job progress** is polled (`GET /api/firmware/jobs/{id}`); the
   engine's event stream does not carry job updates.
 * **One MCU per robot** in telemetry (engine-api v1).
-* **Coordinated multi-axis motion** is not offered by the engine yet;
-  commands address one axis at a time.
+* **Joint-space motion only:** `move_j` moves several joints together on a
+  straight joint-space line; Cartesian (straight tool path) moves are not
+  offered by the engine.
 * Roles are per token; there are no user accounts or token rotation without a
   restart.
 

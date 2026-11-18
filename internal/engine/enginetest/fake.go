@@ -58,7 +58,7 @@ func New(t testing.TB, h HandlerFunc) *Engine {
 	}
 	e := &Engine{
 		Info: &enginev1.EngineInfo{
-			ApiVersion: "0.1.4", EngineVersion: "0.2.0", McuProtocolVersion: 1, PluginApiVersion: "0",
+			ApiVersion: "0.2.0", EngineVersion: "0.2.0", McuProtocolVersion: 1, PluginApiVersion: "0",
 		},
 		Initial: &enginev1.Telemetry{Seq: 1, State: enginev1.RobotState_ROBOT_STATE_DISABLED, Mcu: &enginev1.McuTelemetry{}},
 		handler: h,
@@ -224,6 +224,11 @@ func (s *engineSrv) MoveTo(ctx context.Context, r *enginev1.MoveToRequest) (*eng
 // Home implements EngineService.
 func (s *engineSrv) Home(ctx context.Context, r *enginev1.HomeRequest) (*enginev1.CommandResponse, error) {
 	return call(s.e, ctx, "Home", r, &enginev1.CommandResponse{})
+}
+
+// MoveJ implements EngineService.
+func (s *engineSrv) MoveJ(ctx context.Context, r *enginev1.MoveJRequest) (*enginev1.CommandResponse, error) {
+	return call(s.e, ctx, "MoveJ", r, &enginev1.CommandResponse{})
 }
 
 // HomeAll implements EngineService.
