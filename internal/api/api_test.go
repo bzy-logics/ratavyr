@@ -35,7 +35,7 @@ type env struct {
 type setupOpts struct {
 	handler    enginetest.HandlerFunc
 	noEngine   bool   // point the client at a closed port
-	apiVersion string // engine api_version (default 0.1.4)
+	apiVersion string // engine api_version (default 0.2.0)
 	token      string
 	webDir     string
 	tokens     auth.Tokens
@@ -267,7 +267,7 @@ func TestHealthAndInfo(t *testing.T) {
 	assertJSON(t, "health", b, `{"status":"ok","engine":{"connected":true}}`)
 	_, b = do(t, "GET", e.srv.URL+"/api/info", "")
 	assertJSON(t, "info", b, `{"server_version":"`+api.ServerVersion+`","auth_required":false,
-	 "engine":{"api_version":"0.1.4","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"0","fault_injection_enabled":false},"engine_error":null}`)
+	 "engine":{"api_version":"0.2.0","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"0","fault_injection_enabled":false},"engine_error":null}`)
 }
 
 func TestCommands(t *testing.T) {
@@ -300,6 +300,9 @@ func TestCommands(t *testing.T) {
 		{"move_to", `{"axis":"j1","position":-90}`, &enginev1.MoveToRequest{Axis: "j1", Position: -90}},
 		{"move_to", `{"axis":"j1","position":0,"velocity":10}`, &enginev1.MoveToRequest{Axis: "j1", Position: 0, Velocity: ptr(10.0)}},
 		{"home", `{"axis":"j2"}`, &enginev1.HomeRequest{Axis: "j2"}},
+		// Targets are sent sorted by axis id.
+		{"move_j", `{"targets":{"j2":-10.5,"j1":30}}`, &enginev1.MoveJRequest{Targets: []*enginev1.JointTarget{{Axis: "j1", Position: 30}, {Axis: "j2", Position: -10.5}}}},
+		{"move_j", `{"targets":{"j1":0},"speed_scale":0.25}`, &enginev1.MoveJRequest{Targets: []*enginev1.JointTarget{{Axis: "j1"}}, SpeedScale: ptr(0.25)}},
 	}
 	for _, c := range ok {
 		code, b := do(t, "POST", e.srv.URL+"/api/commands/"+c.name, c.body)
@@ -319,6 +322,10 @@ func TestCommands(t *testing.T) {
 		{"jog", `{"axis":"j1","delta":1,"extra":1}`},
 		{"move_to", `{"axis":"j1"}`}, {"move_to", `{"axis":1,"position":1}`},
 		{"home", `{}`}, {"enable", `{"force":true}`},
+		{"move_j", `{}`}, {"move_j", `{"targets":{}}`}, {"move_j", `{"targets":[["j1",1]]}`},
+		{"move_j", `{"targets":{"j1":"5"}}`}, {"move_j", `{"targets":{"":1}}`}, {"move_j", `{"targets":{"j 1":1}}`},
+		{"move_j", `{"targets":{"j1":1},"speed_scale":0}`}, {"move_j", `{"targets":{"j1":1},"speed_scale":1.5}`},
+		{"move_j", `{"targets":{"j1":1},"velocity":10}`},
 	}
 	for _, c := range bad {
 		if code, b := do(t, "POST", e.srv.URL+"/api/commands/"+c.name, c.body); code != 400 || errCode(t, b) != "bad_request" {
@@ -410,14 +417,14 @@ func TestEngineUnavailable(t *testing.T) {
 }
 
 func TestIncompatibleEngineRefused(t *testing.T) {
-	e := setup(t, setupOpts{apiVersion: "0.2.1"})
+	e := setup(t, setupOpts{apiVersion: "0.3.0"})
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		code, b := do(t, "GET", e.srv.URL+"/api/status", "")
 		if code != 503 || errCode(t, b) != "engine_unavailable" {
 			t.Fatalf("%d %s", code, b)
 		}
-		if strings.Contains(string(b), "0.2.1") {
+		if strings.Contains(string(b), "0.3.0") {
 			break
 		}
 		if time.Now().After(deadline) {

@@ -114,12 +114,20 @@ Command names and params:
 | `move_to` | `{"axis": "j1", "position": -90.0, "velocity"?: 30.0}` | operator |
 | `home` | `{"axis": "j1"}` | operator |
 | `home_all` | `{}` | operator |
+| `move_j` | `{"targets": {"j1": 30.0, "j2": -10.0}, "speed_scale"?: 0.5}` | operator |
 
 A successful command response (`{}`) means the engine **accepted** the
 command, not that it has finished. For `estop` in particular, clients must
 wait for telemetry with `"state": "emergency_stopped"` before showing the
 stop as confirmed. A software emergency stop never replaces a hardware
 E-stop circuit.
+
+`move_j` (engine-api >= 0.2) moves every axis in `targets` together: they
+start and finish at the same time on a straight joint-space line; unlisted
+axes hold; all listed axes must be homed. ratavyr validates 1–32 targets,
+axis ids and `speed_scale` in (0, 1] (else 400 `bad_request`) and sends the
+targets sorted by axis id; the engine answers `not_homed`,
+`validation_failed`, `collision` (409) or `invalid_state`.
 
 Firmware: `POST /api/firmware/builds` needs operator, `POST
 /api/firmware/flashes` needs admin.
@@ -241,10 +249,11 @@ any. Slow clients are disconnected (close code 1013).
   `frame(child) = frame(parent) · Translate(origin_mm) · RPY(rotation_deg) · Joint(q about axis)`,
   where `frame(parent)` includes the parent's joint motion (`q` in deg for
   revolute, mm for prismatic). Either every axis has `geometry` or none has.
-  It describes the machine for display; it does not enable coordinated moves.
+  It describes the machine for display and collision checking; `move_j`
+  does not need it.
 * **`engine_error`** in `/api/info` explains why the engine is not
-  connected, e.g. `incompatible engine api_version "0.2.0" (this server
-  requires 0.1.x)` or the last connection error; `null` while connected.
+  connected, e.g. `incompatible engine api_version "0.1.4" (this server
+  requires 0.2.x)` or the last connection error; `null` while connected.
 * **Firmware verification** (comparing the running MCU firmware with an
   artifact) is a CLI-only engine feature (`motioncore firmware verify`); the
   engine API has no RPC for it yet, so this server cannot offer it.
