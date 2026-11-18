@@ -11,7 +11,7 @@ This repository never contains the `.proto`. Instead, [`contract.lock`](https://
 ```ini
 repo=github.com/bzy-logics/motioncore
 tag=engine-api/v0.1.4
-commit=1aff44f81d4a828b17c9523fdc1c021b2701e72a
+commit=7ad321b46a72b8d7f1960b4dcd26f3020ea797a8
 path=crates/engine-api/proto/motioncore/engine/v1/engine.proto
 import_path=motioncore/engine/v1/engine.proto
 sha256=2272cecf793c29629925b7aefdc9420e8cf0314c38970dd9e58a765817ac0f02
