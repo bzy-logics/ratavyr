@@ -224,7 +224,7 @@ func TestConfigAndPluginsMapping(t *testing.T) {
 			}, nil
 		case "ListPlugins":
 			return &enginev1.ListPluginsResponse{Plugins: []*enginev1.Plugin{
-				{Id: "a", Version: "0.2.0", ApiVersion: "1", Kind: "builtin", Provides: []string{"robot.profile"}, State: enginev1.PluginState_PLUGIN_STATE_ACTIVE},
+				{Id: "a", Version: "0.2.0", ApiVersion: "0", Kind: "builtin", Provides: []string{"robot.profile"}, State: enginev1.PluginState_PLUGIN_STATE_ACTIVE},
 				{Id: "b", Kind: "wasm", State: enginev1.PluginState_PLUGIN_STATE_FAILED, Error: "trap"},
 				{Id: "c", State: enginev1.PluginState(99)},
 			}}, nil
@@ -250,7 +250,7 @@ func TestConfigAndPluginsMapping(t *testing.T) {
 
 	_, b = do(t, "GET", e.srv.URL+"/api/plugins", "")
 	assertJSON(t, "plugins", b, `[
-	 {"id":"a","version":"0.2.0","api_version":"1","kind":"builtin","description":"","provides":["robot.profile"],
+	 {"id":"a","version":"0.2.0","api_version":"0","kind":"builtin","description":"","provides":["robot.profile"],
 	  "requires":[],"permissions":[],"state":"active","error":null},
 	 {"id":"b","version":"","api_version":"","kind":"wasm","description":"","provides":[],"requires":[],"permissions":[],
 	  "state":"failed","error":"trap"},
@@ -267,7 +267,7 @@ func TestHealthAndInfo(t *testing.T) {
 	assertJSON(t, "health", b, `{"status":"ok","engine":{"connected":true}}`)
 	_, b = do(t, "GET", e.srv.URL+"/api/info", "")
 	assertJSON(t, "info", b, `{"server_version":"`+api.ServerVersion+`","auth_required":false,
-	 "engine":{"api_version":"0.1.4","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"1","fault_injection_enabled":false},"engine_error":null}`)
+	 "engine":{"api_version":"0.1.4","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"0","fault_injection_enabled":false},"engine_error":null}`)
 }
 
 func TestCommands(t *testing.T) {
