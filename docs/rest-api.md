@@ -115,6 +115,8 @@ Command names and params:
 | `home` | `{"axis": "j1"}` | operator |
 | `home_all` | `{}` | operator |
 | `move_j` | `{"targets": {"j1": 30.0, "j2": -10.0}, "speed_scale"?: 0.5}` | operator |
+| `move_j_path` | `{"waypoints": [{"j1": 30.0, "j2": 10.0}, {"j1": -30.0}], "speed_scale"?: 0.5}` | operator |
+| `move_l` | `{"position_mm": [x, y, z], "rotation_deg"?: [roll, pitch, yaw], "speed_mm_s"?: 50, "speed_scale"?: 1}` | operator |
 
 A successful command response (`{}`) means the engine **accepted** the
 command, not that it has finished. For `estop` in particular, clients must
@@ -128,6 +130,20 @@ axes hold; all listed axes must be homed. ratavyr validates 1–32 targets,
 axis ids and `speed_scale` in (0, 1] (else 400 `bad_request`) and sends the
 targets sorted by axis id; the engine answers `not_homed`,
 `validation_failed`, `collision` (409) or `invalid_state`.
+
+`move_j_path` (engine-api >= 0.3) moves through the waypoints in order
+without stopping at the intermediate ones (corners are rounded); axes not
+listed in a waypoint keep the previous waypoint's value. ratavyr validates
+1–256 waypoints of 1–32 targets each (errors name the waypoint).
+
+`move_l` (engine-api >= 0.3) moves the tool point in a straight line to
+`position_mm` (base frame); the orientation is held unless `rotation_deg` is
+given (robots with six or more joints). It needs a robot whose geometry is a
+single serial chain (`tool` is non-null in telemetry; otherwise 400
+`bad_request`). ratavyr checks that the vectors have three numbers,
+`speed_mm_s` is in (0, 2000] and `speed_scale` in (0, 1]; the engine refuses
+lines that are out of reach, need a joint beyond its limits or pass a
+singularity (`validation_failed`), or collide (409 `collision`).
 
 Firmware: `POST /api/firmware/builds` needs operator, `POST
 /api/firmware/flashes` needs admin.
@@ -177,7 +193,9 @@ any. Slow clients are disconnected (close code 1013).
   },
   "axes": [{"id": "j1", "homed": true, "enabled": true, "commanded_position": 45.0,
             "measured_position": 44.98, "velocity": 0.0, "endstop": false,
-            "homing": false}]        // homing: this axis is searching for its switch (engine-api >= 0.1.4)
+            "homing": false}],       // homing: this axis is searching for its switch (engine-api >= 0.1.4)
+  "tool": {"position_mm": [120.5, -3.0, 210.0],   // or null: tool point of a serial-chain robot
+           "rotation_deg": [180.0, -12.5, 90.0]}  // roll, pitch, yaw (engine-api >= 0.3)
 }
 // fault codes: communication_lost queue_underrun segment_late limit_hit soft_limit
 //              homing_failed mcu_fault plugin_failed emergency_stop
@@ -252,8 +270,8 @@ any. Slow clients are disconnected (close code 1013).
   It describes the machine for display and collision checking; `move_j`
   does not need it.
 * **`engine_error`** in `/api/info` explains why the engine is not
-  connected, e.g. `incompatible engine api_version "0.1.4" (this server
-  requires 0.2.x)` or the last connection error; `null` while connected.
+  connected, e.g. `incompatible engine api_version "0.2.0" (this server
+  requires 0.3.x)` or the last connection error; `null` while connected.
 * **Firmware verification** (comparing the running MCU firmware with an
   artifact) is a CLI-only engine feature (`motioncore firmware verify`); the
   engine API has no RPC for it yet, so this server cannot offer it.

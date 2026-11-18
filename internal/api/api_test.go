@@ -141,6 +141,7 @@ var fullTelemetry = &enginev1.Telemetry{
 		TxFrames: 2201, RxFrames: 2199, CrcErrors: 3, LastHeartbeatMsAgo: ptr[uint64](12),
 	},
 	Axes: []*enginev1.AxisTelemetry{{Id: "j1", Homed: true, Enabled: true, CommandedPosition: 45, MeasuredPosition: 44.98, Velocity: 1.5, Endstop: true}},
+	Tool: &enginev1.ToolPose{PositionMm: &enginev1.Vec3{X: 120.5, Y: -3, Z: 210}, RotationDeg: &enginev1.Vec3{X: 180, Y: -12.5, Z: 90}},
 }
 
 const fullTelemetryJSON = `{
@@ -149,7 +150,8 @@ const fullTelemetryJSON = `{
  "mcu":{"connected":true,"transport":"virtual","target":"virtual","board":"virtual","firmware_version":"0.1.0",
   "protocol_version":1,"build_hash":"51570001","capabilities":["endstop"],"queue_capacity":32,"queue_depth":1,
   "clock_offset_us":-1520,"rtt_us":180,"tx_frames":2201,"rx_frames":2199,"crc_errors":3,"last_heartbeat_ms_ago":12},
- "axes":[{"id":"j1","homed":true,"enabled":true,"commanded_position":45,"measured_position":44.98,"velocity":1.5,"endstop":true,"homing":false}]
+ "axes":[{"id":"j1","homed":true,"enabled":true,"commanded_position":45,"measured_position":44.98,"velocity":1.5,"endstop":true,"homing":false}],
+ "tool":{"position_mm":[120.5,-3,210],"rotation_deg":[180,-12.5,90]}
 }`
 
 func TestStatusMapping(t *testing.T) {
@@ -177,7 +179,7 @@ func TestStatusMapping(t *testing.T) {
 	assertJSON(t, "minimal", b, `{"seq":0,"time_ms":0,"state":"ready","fault":null,
 	 "mcu":{"connected":false,"transport":"","target":"","board":"","firmware_version":"","protocol_version":0,
 	  "build_hash":"","capabilities":[],"queue_capacity":0,"queue_depth":0,"clock_offset_us":0,"rtt_us":0,
-	  "tx_frames":0,"rx_frames":0,"crc_errors":0,"last_heartbeat_ms_ago":null},"axes":[]}`)
+	  "tx_frames":0,"rx_frames":0,"crc_errors":0,"last_heartbeat_ms_ago":null},"axes":[],"tool":null}`)
 }
 
 func TestFaultAxisNull(t *testing.T) {
@@ -267,7 +269,7 @@ func TestHealthAndInfo(t *testing.T) {
 	assertJSON(t, "health", b, `{"status":"ok","engine":{"connected":true}}`)
 	_, b = do(t, "GET", e.srv.URL+"/api/info", "")
 	assertJSON(t, "info", b, `{"server_version":"`+api.ServerVersion+`","auth_required":false,
-	 "engine":{"api_version":"0.2.0","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"0","fault_injection_enabled":false},"engine_error":null}`)
+	 "engine":{"api_version":"0.3.0","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"0","fault_injection_enabled":false},"engine_error":null}`)
 }
 
 func TestCommands(t *testing.T) {
@@ -303,6 +305,14 @@ func TestCommands(t *testing.T) {
 		// Targets are sent sorted by axis id.
 		{"move_j", `{"targets":{"j2":-10.5,"j1":30}}`, &enginev1.MoveJRequest{Targets: []*enginev1.JointTarget{{Axis: "j1", Position: 30}, {Axis: "j2", Position: -10.5}}}},
 		{"move_j", `{"targets":{"j1":0},"speed_scale":0.25}`, &enginev1.MoveJRequest{Targets: []*enginev1.JointTarget{{Axis: "j1"}}, SpeedScale: ptr(0.25)}},
+		{"move_j_path", `{"waypoints":[{"j2":10,"j1":30},{"j1":-30}],"speed_scale":0.5}`, &enginev1.MoveJPathRequest{
+			Waypoints: []*enginev1.JointWaypoint{
+				{Targets: []*enginev1.JointTarget{{Axis: "j1", Position: 30}, {Axis: "j2", Position: 10}}},
+				{Targets: []*enginev1.JointTarget{{Axis: "j1", Position: -30}}},
+			}, SpeedScale: ptr(0.5)}},
+		{"move_l", `{"position_mm":[120,-40.5,300]}`, &enginev1.MoveLRequest{PositionMm: &enginev1.Vec3{X: 120, Y: -40.5, Z: 300}}},
+		{"move_l", `{"position_mm":[1,2,3],"rotation_deg":[0,90,-45],"speed_mm_s":60,"speed_scale":0.5}`, &enginev1.MoveLRequest{
+			PositionMm: &enginev1.Vec3{X: 1, Y: 2, Z: 3}, RotationDeg: &enginev1.Vec3{Y: 90, Z: -45}, SpeedMmS: ptr(60.0), SpeedScale: ptr(0.5)}},
 	}
 	for _, c := range ok {
 		code, b := do(t, "POST", e.srv.URL+"/api/commands/"+c.name, c.body)
@@ -417,14 +427,14 @@ func TestEngineUnavailable(t *testing.T) {
 }
 
 func TestIncompatibleEngineRefused(t *testing.T) {
-	e := setup(t, setupOpts{apiVersion: "0.3.0"})
+	e := setup(t, setupOpts{apiVersion: "0.4.0"})
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		code, b := do(t, "GET", e.srv.URL+"/api/status", "")
 		if code != 503 || errCode(t, b) != "engine_unavailable" {
 			t.Fatalf("%d %s", code, b)
 		}
-		if strings.Contains(string(b), "0.3.0") {
+		if strings.Contains(string(b), "0.4.0") {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -757,5 +767,33 @@ func TestEarlyRejectionWithConnectionCloseDeliversError(t *testing.T) {
 				t.Fatalf("%s, attempt %d: response %q lacks error code %v", c.name, i, resp, c.want)
 			}
 		}
+	}
+}
+
+// TestPathAndLineParams checks move_j_path and move_l parameter validation
+// (separate from TestCommands to stay under the per-client rate limit).
+func TestPathAndLineParams(t *testing.T) {
+	got := make(chan proto.Message, 10)
+	e := setup(t, setupOpts{handler: func(_ context.Context, _ string, req proto.Message) (proto.Message, error) {
+		got <- req
+		return nil, nil
+	}})
+	bad := []struct{ name, body string }{
+		{"move_j_path", `{}`}, {"move_j_path", `{"waypoints":[]}`}, {"move_j_path", `{"waypoints":[{}]}`},
+		{"move_j_path", `{"waypoints":[{"j1":1},{"j 1":2}]}`}, {"move_j_path", `{"waypoints":[{"j1":1}],"speed_scale":2}`},
+		{"move_j_path", `{"waypoints":{"j1":1}}`},
+		{"move_l", `{}`}, {"move_l", `{"position_mm":[1,2]}`}, {"move_l", `{"position_mm":[1,2,3,4]}`},
+		{"move_l", `{"position_mm":[1,2,3],"rotation_deg":[0]}`}, {"move_l", `{"position_mm":[1,2,3],"speed_mm_s":0}`},
+		{"move_l", `{"position_mm":[1,2,3],"speed_mm_s":5000}`}, {"move_l", `{"position_mm":"1,2,3"}`},
+	}
+	for _, c := range bad {
+		if code, b := do(t, "POST", e.srv.URL+"/api/commands/"+c.name, c.body); code != 400 || errCode(t, b) != "bad_request" {
+			t.Errorf("%s %s: %d %s", c.name, c.body, code, b)
+		}
+	}
+	select {
+	case m := <-got:
+		t.Errorf("engine called for invalid request: %v", m)
+	default:
 	}
 }

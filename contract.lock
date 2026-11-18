@@ -1,8 +1,8 @@
 # Pinned engine API contract. Generated bindings in gen/ are produced from
 # exactly this file by scripts/generate.sh. Update all fields together.
 repo=github.com/bzy-logics/motioncore
-tag=engine-api/v0.2.0
-commit=e1f90b710efb699373f5de20cf2e1527bec8492c
+tag=engine-api/v0.3.0
+commit=7f6e77235960421e8363bcc72d8dbaaef1ba3886
 path=crates/engine-api/proto/motioncore/engine/v1/engine.proto
 import_path=motioncore/engine/v1/engine.proto
-sha256=b003c8065e98750998124713f51f23561dbef0efe3c68b4f1a8c8ab99530543d
+sha256=83fe0a492d11224d67a5d202520f655181d405b90f839f43ba72569a8b8cce2c
