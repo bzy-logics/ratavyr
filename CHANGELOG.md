@@ -2,7 +2,7 @@
 
 All notable changes to ratavyr, the MotionCore gateway. Validation levels follow MotionCore's: *implemented*, *simulated* (against the engine's virtual MCU), *software-tested* (automated tests in CI), *hardware-validated*. ratavyr itself drives no hardware; what it relays is validated as described in [MotionCore's changelog](https://github.com/bzy-logics/motioncore/blob/main/CHANGELOG.md).
 
-## [0.3.0] — unreleased
+## [0.3.0] — 2026-11-19
 
 The first ratavyr release, part of the MotionCore v0.3.0 baseline.
 
