@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -691,5 +692,63 @@ func TestStaticSPAFallback(t *testing.T) {
 	}
 	if code, b := do(t, "GET", e.srv.URL+"/api/nope", "", "Authorization", "Bearer t"); code != 404 || errCode(t, b) != "not_found" {
 		t.Errorf("/api/nope: %d %s", code, b)
+	}
+}
+
+// rawPost sends a POST the way Python's urllib does ("Connection: close",
+// body sent after the headers) and returns the full raw response.
+func rawPost(t *testing.T, srvURL, path, auth, body string) string {
+	t.Helper()
+	c, err := net.Dial("tcp", strings.TrimPrefix(srvURL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+	head := "POST " + path + " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n" +
+		"Content-Type: application/json\r\nContent-Length: " + strconv.Itoa(len(body)) + "\r\n"
+	if auth != "" {
+		head += "Authorization: Bearer " + auth + "\r\n"
+	}
+	if _, err := io.WriteString(c, head+"\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Millisecond) // let the server answer before the body arrives
+	if _, err := io.WriteString(c, body); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := io.ReadAll(c)
+	if err != nil {
+		t.Fatalf("reading response: %v (got %q)", err, resp)
+	}
+	return string(resp)
+}
+
+// Regression: a POST rejected before its body was read, from a client that
+// sent "Connection: close", must still get the JSON error (not a reset).
+func TestEarlyRejectionWithConnectionCloseDeliversError(t *testing.T) {
+	const tok = "s3cret"
+	e := setup(t, setupOpts{token: tok})
+	cases := []struct {
+		name, path, auth string
+		want             []string // any of these error codes
+	}{
+		{"unknown command", "/api/commands/nope", tok, []string{"unknown_command"}},
+		{"no such endpoint", "/api/nope", tok, []string{"not_found"}},
+		// After 10 failed logins the client is rate limited: also an early
+		// rejection, which must be delivered just the same.
+		{"unauthorized", "/api/commands/stop", "", []string{"unauthorized", "rate_limited"}},
+	}
+	for _, c := range cases {
+		for i := 0; i < 20; i++ {
+			resp := rawPost(t, e.srv.URL, c.path, c.auth, `{"targets":{"j1":1}}`)
+			ok := false
+			for _, code := range c.want {
+				ok = ok || strings.Contains(resp, `"code":"`+code+`"`)
+			}
+			if !ok {
+				t.Fatalf("%s, attempt %d: response %q lacks error code %v", c.name, i, resp, c.want)
+			}
+		}
 	}
 }

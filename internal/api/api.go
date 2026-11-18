@@ -134,7 +134,9 @@ func New(o Options) http.Handler {
 		Rate:           o.RateLimit,
 		Burst:          o.RateBurst,
 	})
-	return g.Middleware(authn.Middleware(aud.Middleware(apiHeaders(mux))))
+	// DrainBody is outermost so that every early rejection (guard, auth,
+	// routing, handlers) still consumes the request body first.
+	return rest.DrainBody(g.Middleware(authn.Middleware(aud.Middleware(apiHeaders(mux)))))
 }
 
 // allowedMethods lists the methods that do have a route for r's path.
