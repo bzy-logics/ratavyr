@@ -59,7 +59,7 @@ See [Authentication & roles](/guide/authentication). In short: send `Authorizati
 | POST | `/api/firmware/flashes` | `{"build_job_id": string, "confirm": true}` | `202` `FirmwareJob` |
 | GET | `/api/ws` | – | WebSocket (below) |
 
-`engine_error` in `/api/info` explains why the engine is not connected — for example `incompatible engine api_version "0.1.4" (this server requires 0.2.x)` — and is `null` while connected.
+`engine_error` in `/api/info` explains why the engine is not connected — for example `incompatible engine api_version "0.2.0" (this server requires 0.3.x)` — and is `null` while connected.
 
 ### Commands
 
@@ -74,6 +74,8 @@ See [Authentication & roles](/guide/authentication). In short: send `Authorizati
 | `home` | `{"axis":"j1"}` | operator |
 | `home_all` | `{}` | operator |
 | `move_j` | `{"targets":{"j1":30.0,"j2":-10.0},"speed_scale"?:0.5}` | operator |
+| `move_j_path` | `{"waypoints":[{"j1":30.0,"j2":10.0},{"j1":-30.0}],"speed_scale"?:0.5}` | operator |
+| `move_l` | `{"position_mm":[x,y,z],"rotation_deg"?:[roll,pitch,yaw],"speed_mm_s"?:50,"speed_scale"?:1}` | operator |
 
 A `{}` response means the engine **accepted** the command, not that it has finished. For `estop`, wait for telemetry with `"state": "emergency_stopped"` before showing the stop as confirmed. A software emergency stop never replaces a hardware E-stop circuit.
 
@@ -89,6 +91,15 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
      -d '{"targets":{"j1":60,"j2":30,"j3":120,"j4":90,"j5":-60,"j6":180},"speed_scale":0.5}' \
      http://127.0.0.1:8080/api/commands/move_j
+```
+
+`move_j_path` (engine API 0.3 or newer) moves through the waypoints in order **without stopping** at the intermediate ones: corners are rounded, the path starts and ends at rest. Axes not listed in a waypoint keep the previous waypoint's value. ratavyr validates 1–256 waypoints of 1–32 targets each (errors name the waypoint); the engine answers like `move_j`. See [MotionCore: blended paths](https://motioncore.bzy-logics.com/guide/motion#blended-paths-movejpath).
+
+`move_l` (engine API 0.3 or newer) moves the **tool point** in a straight line to `position_mm` (mm, robot base frame). The orientation is held unless `rotation_deg` (roll, pitch, yaw in degrees) is given, for robots with six or more joints. It needs a robot whose geometry is a single serial chain: then telemetry has a non-null `tool`; otherwise `400 bad_request`. ratavyr checks that the vectors have three numbers, `speed_mm_s` (tool speed, default 50) is in (0, 2000] and `speed_scale` in (0, 1]. The engine refuses a line that is out of reach, needs a joint beyond its soft limits or passes a singularity (`400 validation_failed`), or would collide (`409 collision`). See [MotionCore: Cartesian moves](https://motioncore.bzy-logics.com/guide/motion#cartesian-moves-movel).
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"position_mm":[89.4,120,106.7],"speed_mm_s":60}' http://127.0.0.1:8080/api/commands/move_l
 ```
 
 ### Firmware
@@ -142,7 +153,9 @@ Live telemetry and logs: see [WebSocket](/reference/websocket).
   },
   "axes": [{"id": "j1", "homed": true, "enabled": true, "commanded_position": 45.0,
             "measured_position": 44.98, "velocity": 0.0, "endstop": false,
-            "homing": false}]        // homing: this axis is searching for its switch (engine-api >= 0.1.4)
+            "homing": false}],       // homing: this axis is searching for its switch (engine-api >= 0.1.4)
+  "tool": {"position_mm": [120.5, -3.0, 210.0],   // or null: tool point of a serial-chain robot
+           "rotation_deg": [180.0, -12.5, 90.0]}  // roll, pitch, yaw (engine-api >= 0.3)
 }
 ```
 
