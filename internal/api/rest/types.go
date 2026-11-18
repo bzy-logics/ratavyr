@@ -30,6 +30,16 @@ type Telemetry struct {
 	Fault  *Fault          `json:"fault"`
 	MCU    MCUTelemetry    `json:"mcu"`
 	Axes   []AxisTelemetry `json:"axes"`
+	// Tool is the tool pose of a serial-chain robot (engine-api >= 0.3);
+	// null otherwise, and then move_l is not available.
+	Tool *ToolPose `json:"tool"`
+}
+
+// ToolPose is the tool point in the robot base frame.
+type ToolPose struct {
+	PositionMM [3]float64 `json:"position_mm"`
+	// RotationDeg is roll, pitch, yaw: R = Rz(yaw)·Ry(pitch)·Rx(roll).
+	RotationDeg [3]float64 `json:"rotation_deg"`
 }
 
 // Fault is a latched fault.
@@ -298,6 +308,10 @@ func FromTelemetry(t *enginev1.Telemetry) Telemetry {
 			Endstop:           a.GetEndstop(),
 			Homing:            a.GetHoming(),
 		})
+	}
+	if tp := t.GetTool(); tp != nil {
+		v3 := func(v *enginev1.Vec3) [3]float64 { return [3]float64{v.GetX(), v.GetY(), v.GetZ()} }
+		out.Tool = &ToolPose{PositionMM: v3(tp.GetPositionMm()), RotationDeg: v3(tp.GetRotationDeg())}
 	}
 	return out
 }

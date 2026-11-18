@@ -84,7 +84,7 @@ func TestTarget(t *testing.T) {
 }
 
 func TestCheckAPIVersion(t *testing.T) {
-	for v, ok := range map[string]bool{"0.2.0": true, "0.2.7": true, "0.2.99": true, "0.1.4": false, "0.3.0": false, "1.2.0": false, "0.2": true, "0": false, "": false, "x": false} {
+	for v, ok := range map[string]bool{"0.3.0": true, "0.3.7": true, "0.3.99": true, "0.2.0": false, "0.4.0": false, "1.2.0": false, "0.3": true, "0": false, "": false, "x": false} {
 		if err := engine.CheckAPIVersion(v); (err == nil) != ok {
 			t.Errorf("CheckAPIVersion(%q) = %v", v, err)
 		}
@@ -108,7 +108,7 @@ func TestCallAndTrailerErrors(t *testing.T) {
 	if err != nil || tel.GetSeq() != 42 {
 		t.Fatalf("GetStatus: %v %v", tel, err)
 	}
-	if got := c.Info().GetApiVersion(); got != "0.2.0" {
+	if got := c.Info().GetApiVersion(); got != "0.3.0" {
 		t.Fatalf("Info: %q", got)
 	}
 
@@ -171,7 +171,7 @@ func TestUnavailableAndReconnect(t *testing.T) {
 
 func TestIncompatibleAPIVersionRefused(t *testing.T) {
 	fake := enginetest.New(t, nil)
-	fake.Info.ApiVersion = "0.1.4"
+	fake.Info.ApiVersion = "0.2.0"
 	c := startClient(t, engine.Options{Target: fake.Addr()})
 	var err error
 	waitFor(t, "refusal", func() bool {
@@ -184,7 +184,7 @@ func TestIncompatibleAPIVersionRefused(t *testing.T) {
 	if fake.Streams() != 0 {
 		t.Fatal("subscribed to an incompatible engine")
 	}
-	if !errors.Is(err, engine.ErrUnavailable) || !strings.Contains(err.Error(), `"0.1.4"`) {
+	if !errors.Is(err, engine.ErrUnavailable) || !strings.Contains(err.Error(), `"0.2.0"`) {
 		t.Fatalf("got %v", err)
 	}
 	if len(fake.Calls()) != 0 {

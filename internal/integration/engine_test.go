@@ -15,6 +15,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -445,7 +446,7 @@ func TestGeometryIsRelayed(t *testing.T) {
 		}
 	}
 	_, b = s.req("GET", "/api/info", "", "")
-	if !strings.Contains(string(b), `"api_version":"0.2.0"`) {
+	if !strings.Contains(string(b), `"api_version":"0.3.0"`) {
 		t.Fatalf("info: %s", b)
 	}
 }
@@ -576,6 +577,60 @@ func TestMoveJOverREST(t *testing.T) {
 	for _, a := range st.Axes {
 		if math.Abs(a.Measured-want[a.ID]) > 0.01 {
 			t.Errorf("%s at %v, want %v", a.ID, a.Measured, want[a.ID])
+		}
+	}
+}
+
+// TestPathAndLineOverREST runs a blended joint path and a Cartesian line
+// through the gateway against the real engine and its simulated MCU.
+func TestPathAndLineOverREST(t *testing.T) {
+	s := setupProfile(t, "dummy-arm-virtual.toml")
+	s.mustCmd("enable", "{}")
+	s.waitState("ready", 5*time.Second)
+	s.mustCmd("home_all", "{}")
+	s.waitFor("all homed", 60*time.Second, func(t telemetry) bool {
+		for _, a := range t.Axes {
+			if !a.Homed {
+				return false
+			}
+		}
+		return t.State == "ready"
+	})
+	if code, ec := s.cmd(tokens.Viewer, "move_l", `{"position_mm":[1,2,3]}`); code != 403 || ec != "forbidden" {
+		t.Fatalf("viewer move_l: %d %s", code, ec)
+	}
+	if code, ec := s.cmd(tokens.Operator, "move_j_path", `{"waypoints":[{"j2":95}]}`); code != 400 || ec != "validation_failed" {
+		t.Fatalf("out-of-limits path: %d %s", code, ec)
+	}
+	s.mustCmd("move_j_path", `{"waypoints":[{"j1":0,"j2":0,"j3":90,"j4":0,"j5":0,"j6":0},{"j1":0,"j2":20,"j3":110,"j5":-40}]}`)
+	s.waitState("running", 2*time.Second)
+	s.waitState("ready", 30*time.Second)
+
+	// The tool pose is in the telemetry.
+	_, b := s.req("GET", "/api/status", tokens.Viewer, "")
+	var st struct {
+		Tool *struct {
+			PositionMM [3]float64 `json:"position_mm"`
+		} `json:"tool"`
+	}
+	if err := json.Unmarshal(b, &st); err != nil || st.Tool == nil {
+		t.Fatalf("no tool pose: %s", b)
+	}
+	p := st.Tool.PositionMM
+	if code, ec := s.cmd(tokens.Operator, "move_l", `{"position_mm":[2000,0,300]}`); code != 400 || ec != "validation_failed" {
+		t.Fatalf("unreachable move_l: %d %s", code, ec)
+	}
+	target := [3]float64{p[0], p[1] + 80, p[2] - 30}
+	s.mustCmd("move_l", fmt.Sprintf(`{"position_mm":[%g,%g,%g],"speed_mm_s":80}`, target[0], target[1], target[2]))
+	s.waitState("running", 2*time.Second)
+	s.waitState("ready", 30*time.Second)
+	_, b = s.req("GET", "/api/status", tokens.Viewer, "")
+	if err := json.Unmarshal(b, &st); err != nil || st.Tool == nil {
+		t.Fatalf("status: %s", b)
+	}
+	for k := range 3 {
+		if math.Abs(st.Tool.PositionMM[k]-target[k]) > 0.1 {
+			t.Fatalf("tool at %v, want %v", st.Tool.PositionMM, target)
 		}
 	}
 }

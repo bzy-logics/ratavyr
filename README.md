@@ -135,10 +135,10 @@ gen/                 generated gRPC bindings (committed, do not edit)
 
 ## Engine contract and generated code
 
-Compatibility: **engine-api 0.2.x** (`motioncore.engine.v1`). While pre-1.0,
+Compatibility: **engine-api 0.3.x** (`motioncore.engine.v1`). While pre-1.0,
 an engine is accepted only with the same `0.MINOR`: patch releases are
 additive, minor releases may break clients. The contract is pinned in
-[`contract.lock`](contract.lock): source repo, tag (`engine-api/v0.2.0`, adds coordinated joint moves),
+[`contract.lock`](contract.lock): source repo, tag (`engine-api/v0.3.0`, adds Cartesian lines and blended joint paths; not yet tagged),
 commit, proto path and its sha256. No copy of the proto is kept in this repo.
 
 ```sh

@@ -35,8 +35,12 @@ func RoleFor(command string) auth.Role {
 // MaxAxisIDLength bounds axis identifiers in requests.
 const MaxAxisIDLength = 64
 
-// MaxJointTargets bounds the axes of one move_j command.
+// MaxJointTargets bounds the axes of one move_j command (and of each
+// move_j_path waypoint).
 const MaxJointTargets = 32
+
+// MaxWaypoints bounds the waypoints of one move_j_path command (as the engine).
+const MaxWaypoints = 256
 
 // Handler serves /api/status, /api/config and /api/commands/{name}.
 type Handler struct {
@@ -186,28 +190,65 @@ var commands = map[string]command{
 		if err := decode(raw, &p); err != nil {
 			return err
 		}
-		if len(p.Targets) == 0 {
-			return badParams(`"targets" must map at least one axis to a position`)
+		if err := optionalSpeedScale(p.SpeedScale); err != nil {
+			return err
 		}
-		if len(p.Targets) > MaxJointTargets {
-			return badParams(`"targets" lists more than %d axes`, MaxJointTargets)
+		targets, err := jointTargets(p.Targets)
+		if err != nil {
+			return badParams("%v", err)
 		}
-		if s := p.SpeedScale; s != nil && !(*s > 0 && *s <= 1) {
-			return badParams(`"speed_scale" must be in (0, 1]`)
+		return discard(engine.Call(ctx, e, e.Engine.MoveJ, &enginev1.MoveJRequest{Targets: targets, SpeedScale: p.SpeedScale}))
+	},
+	"move_j_path": func(ctx context.Context, e *engine.Client, raw json.RawMessage) error {
+		var p struct {
+			Waypoints  []map[string]float64 `json:"waypoints"`
+			SpeedScale *float64             `json:"speed_scale"`
 		}
-		axes := make([]string, 0, len(p.Targets))
-		for a := range p.Targets {
-			axes = append(axes, a)
+		if err := decode(raw, &p); err != nil {
+			return err
 		}
-		sort.Strings(axes)
-		req := &enginev1.MoveJRequest{SpeedScale: p.SpeedScale}
-		for _, a := range axes {
-			if err := requireAxis(&a); err != nil {
-				return err
+		if len(p.Waypoints) == 0 || len(p.Waypoints) > MaxWaypoints {
+			return badParams(`"waypoints" must list 1 to %d joint maps`, MaxWaypoints)
+		}
+		if err := optionalSpeedScale(p.SpeedScale); err != nil {
+			return err
+		}
+		req := &enginev1.MoveJPathRequest{SpeedScale: p.SpeedScale}
+		for n, w := range p.Waypoints {
+			targets, err := jointTargets(w)
+			if err != nil {
+				return badParams("waypoint %d: %v", n+1, err)
 			}
-			req.Targets = append(req.Targets, &enginev1.JointTarget{Axis: a, Position: p.Targets[a]})
+			req.Waypoints = append(req.Waypoints, &enginev1.JointWaypoint{Targets: targets})
 		}
-		return discard(engine.Call(ctx, e, e.Engine.MoveJ, req))
+		return discard(engine.Call(ctx, e, e.Engine.MoveJPath, req))
+	},
+	"move_l": func(ctx context.Context, e *engine.Client, raw json.RawMessage) error {
+		var p struct {
+			PositionMM  *[]float64 `json:"position_mm"`
+			RotationDeg *[]float64 `json:"rotation_deg"`
+			SpeedMMS    *float64   `json:"speed_mm_s"`
+			SpeedScale  *float64   `json:"speed_scale"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return err
+		}
+		pos, err := vec3("position_mm", p.PositionMM, true)
+		if err != nil {
+			return err
+		}
+		rot, err := vec3("rotation_deg", p.RotationDeg, false)
+		if err != nil {
+			return err
+		}
+		if s := p.SpeedMMS; s != nil && !(*s > 0 && *s <= 2000) {
+			return badParams(`"speed_mm_s" must be in (0, 2000]`)
+		}
+		if err := optionalSpeedScale(p.SpeedScale); err != nil {
+			return err
+		}
+		return discard(engine.Call(ctx, e, e.Engine.MoveL,
+			&enginev1.MoveLRequest{PositionMm: pos, RotationDeg: rot, SpeedMmS: p.SpeedMMS, SpeedScale: p.SpeedScale}))
 	},
 	"home_all": noParams(func(ctx context.Context, e *engine.Client) error {
 		return discard(engine.Call(ctx, e, e.Engine.HomeAll, &enginev1.HomeAllRequest{}))
@@ -275,6 +316,52 @@ func requireNumber(name string, v *float64) error {
 		return badParams("missing parameter %q", name)
 	}
 	return nil
+}
+
+// jointTargets validates an axis → position map (1 to MaxJointTargets
+// entries, valid axis ids) and returns it sorted by axis id.
+func jointTargets(m map[string]float64) ([]*enginev1.JointTarget, error) {
+	if len(m) == 0 {
+		return nil, fmt.Errorf(`"targets" must map at least one axis to a position`)
+	}
+	if len(m) > MaxJointTargets {
+		return nil, fmt.Errorf(`"targets" lists more than %d axes`, MaxJointTargets)
+	}
+	axes := make([]string, 0, len(m))
+	for a := range m {
+		axes = append(axes, a)
+	}
+	sort.Strings(axes)
+	out := make([]*enginev1.JointTarget, 0, len(axes))
+	for _, a := range axes {
+		if err := requireAxis(&a); err != nil {
+			return nil, err
+		}
+		out = append(out, &enginev1.JointTarget{Axis: a, Position: m[a]})
+	}
+	return out, nil
+}
+
+// optionalSpeedScale checks an optional fraction in (0, 1].
+func optionalSpeedScale(s *float64) error {
+	if s != nil && !(*s > 0 && *s <= 1) {
+		return badParams(`"speed_scale" must be in (0, 1]`)
+	}
+	return nil
+}
+
+// vec3 checks an [x, y, z] array.
+func vec3(name string, v *[]float64, required bool) (*enginev1.Vec3, error) {
+	if v == nil {
+		if required {
+			return nil, badParams("missing parameter %q", name)
+		}
+		return nil, nil
+	}
+	if len(*v) != 3 {
+		return nil, badParams("%q must be an array of 3 numbers", name)
+	}
+	return &enginev1.Vec3{X: (*v)[0], Y: (*v)[1], Z: (*v)[2]}, nil
 }
 
 // optionalVelocity checks the optional velocity; range checks against the
