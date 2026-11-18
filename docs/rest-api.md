@@ -150,7 +150,7 @@ any. Slow clients are disconnected (close code 1013).
 ```jsonc
 // EngineInfo
 {"api_version": "0.1.4", "engine_version": "0.2.0", "mcu_protocol_version": 1,
- "plugin_api_version": "1", "fault_injection_enabled": false}
+ "plugin_api_version": "0", "fault_injection_enabled": false}
 
 // Telemetry
 {
@@ -205,7 +205,7 @@ any. Slow clients are disconnected (close code 1013).
 }
 
 // Plugin
-{"id": "org.motioncore.robot.single_axis", "version": "0.2.0", "api_version": "1",
+{"id": "org.motioncore.robot.single_axis", "version": "0.2.0", "api_version": "0",
  "kind": "builtin", "description": "...", "provides": ["robot.profile"],
  "requires": ["robot.joint_model"], "permissions": ["robot.read_geometry"],
  "state": "active", "error": null}        // state: discovered|validated|resolved|initialized|active|failed|deactivated
