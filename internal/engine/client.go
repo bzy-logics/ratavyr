@@ -2,7 +2,7 @@
 // (motioncore.engine.v1, generated bindings in gen/).
 //
 // The Client keeps one gRPC channel to the engine. Its Run loop performs the
-// GetInfo handshake (refusing engines whose api_version major is not 1),
+// GetInfo handshake (refusing engines whose api_version has another 0.MINOR),
 // subscribes to StreamEvents, caches the latest telemetry and fans events out
 // to local subscribers, reconnecting with exponential backoff. It never
 // synthesises robot state; it only relays what the engine reports.
