@@ -24,8 +24,14 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// SupportedAPIMajor is the engine-api major version this server implements.
-const SupportedAPIMajor = 1
+// SupportedAPIMajor and SupportedAPIMinor identify the engine-api contract
+// this server implements (contract.lock). While the major is 0, an engine is
+// compatible only with the same 0.MINOR: minor releases may break clients,
+// patch releases are additive.
+const (
+	SupportedAPIMajor = 0
+	SupportedAPIMinor = 1
+)
 
 // EventType distinguishes subscriber events.
 type EventType int
@@ -227,10 +233,16 @@ var errIncompatible = errors.New("incompatible engine api_version")
 // CheckAPIVersion verifies that v (semver "MAJOR.MINOR.PATCH") is a version
 // this server supports.
 func CheckAPIVersion(v string) error {
-	majorStr, _, _ := strings.Cut(v, ".")
-	major, err := strconv.Atoi(majorStr)
-	if err != nil || major != SupportedAPIMajor {
-		return fmt.Errorf("%w %q (this server requires %d.x)", errIncompatible, v, SupportedAPIMajor)
+	want := fmt.Sprintf("%d.x", SupportedAPIMajor)
+	if SupportedAPIMajor == 0 {
+		want = fmt.Sprintf("0.%d.x", SupportedAPIMinor)
+	}
+	majorStr, rest, _ := strings.Cut(v, ".")
+	minorStr, _, _ := strings.Cut(rest, ".")
+	major, err1 := strconv.Atoi(majorStr)
+	minor, err2 := strconv.Atoi(minorStr)
+	if err1 != nil || err2 != nil || major != SupportedAPIMajor || (major == 0 && minor != SupportedAPIMinor) {
+		return fmt.Errorf("%w %q (this server requires %s)", errIncompatible, v, want)
 	}
 	return nil
 }

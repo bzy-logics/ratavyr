@@ -68,7 +68,7 @@ type AxisTelemetry struct {
 	MeasuredPosition  float64 `json:"measured_position"`
 	Velocity          float64 `json:"velocity"`
 	Endstop           bool    `json:"endstop"`
-	// Homing is true while the axis is homing (engine-api >= 1.2).
+	// Homing is true while the axis is homing (engine-api >= 0.1.4).
 	Homing bool `json:"homing"`
 }
 
@@ -79,10 +79,10 @@ type RobotConfig struct {
 	MCUs    []MCUConfig  `json:"mcus"`
 	Axes    []AxisConfig `json:"axes"`
 	// HomeAll is how the home_all command proceeds; null with engines older
-	// than API 1.2.
+	// than API 0.1.4.
 	HomeAll *HomeAllPlan `json:"home_all"`
 	// CollisionChecking is true when the engine refuses moves that would make
-	// the robot collide with itself or the floor (engine-api >= 1.2).
+	// the robot collide with itself or the floor (engine-api >= 0.1.4).
 	CollisionChecking bool `json:"collision_checking"`
 }
 
@@ -122,7 +122,7 @@ type AxisConfig struct {
 	EnablePin       string   `json:"enable_pin"`
 	EndstopPin      *string  `json:"endstop_pin"`
 	// Geometry is the joint's kinematic placement; null when the robot
-	// profile defines none (engine-api >= 1.1).
+	// profile defines none (engine-api >= 0.1.3).
 	Geometry *AxisGeometry `json:"geometry"`
 }
 

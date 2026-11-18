@@ -1,13 +1,15 @@
-// MotionCore engine control API, version 1.
+// MotionCore engine control API (proto package motioncore.engine.v1).
 //
 // Published and versioned by the `motioncore` repository (crate
 // `motioncore-engine-api`). Clients generate bindings from a *tagged release*
 // of this file (git tag `engine-api/vX.Y.Z`); never copy and edit it.
 //
-// Compatibility rules for v1:
-//   * Only additive changes (new fields, messages, RPCs, enum values).
+// Versioning while MotionCore is pre-1.0 (API_VERSION 0.MINOR.PATCH):
+//   * PATCH: additive, compatible changes (new fields, messages, RPCs, enum values).
+//   * MINOR: breaking changes and major features. Clients accept an engine
+//     with the same 0.MINOR.
 //   * Field numbers are never reused; removed fields are `reserved`.
-//   * Breaking changes require package `motioncore.engine.v2`.
+//   * The `v1` in the package name is the package generation, not the version.
 //
 // Errors are returned as gRPC status codes. The precise MotionCore error code
 // is sent in the trailing metadata key `motioncore-error-code`:
@@ -81,7 +83,7 @@ type EngineServiceClient interface {
 	MoveTo(ctx context.Context, in *MoveToRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	Home(ctx context.Context, in *HomeRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	// Run the robot's home-all plan: the axes of one group home at the same
-	// time, groups in order. Added in 1.2.0.
+	// time, groups in order. Added in 0.1.4.
 	HomeAll(ctx context.Context, in *HomeAllRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*CommandResponse, error)
 	EmergencyStop(ctx context.Context, in *EmergencyStopRequest, opts ...grpc.CallOption) (*CommandResponse, error)
@@ -287,7 +289,7 @@ type EngineServiceServer interface {
 	MoveTo(context.Context, *MoveToRequest) (*CommandResponse, error)
 	Home(context.Context, *HomeRequest) (*CommandResponse, error)
 	// Run the robot's home-all plan: the axes of one group home at the same
-	// time, groups in order. Added in 1.2.0.
+	// time, groups in order. Added in 0.1.4.
 	HomeAll(context.Context, *HomeAllRequest) (*CommandResponse, error)
 	Stop(context.Context, *StopRequest) (*CommandResponse, error)
 	EmergencyStop(context.Context, *EmergencyStopRequest) (*CommandResponse, error)

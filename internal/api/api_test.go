@@ -34,7 +34,7 @@ type env struct {
 type setupOpts struct {
 	handler    enginetest.HandlerFunc
 	noEngine   bool   // point the client at a closed port
-	apiVersion string // engine api_version (default 1.0.0)
+	apiVersion string // engine api_version (default 0.1.4)
 	token      string
 	webDir     string
 	tokens     auth.Tokens
@@ -266,7 +266,7 @@ func TestHealthAndInfo(t *testing.T) {
 	assertJSON(t, "health", b, `{"status":"ok","engine":{"connected":true}}`)
 	_, b = do(t, "GET", e.srv.URL+"/api/info", "")
 	assertJSON(t, "info", b, `{"server_version":"`+api.ServerVersion+`","auth_required":false,
-	 "engine":{"api_version":"1.0.0","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"1","fault_injection_enabled":false},"engine_error":null}`)
+	 "engine":{"api_version":"0.1.4","engine_version":"0.2.0","mcu_protocol_version":1,"plugin_api_version":"1","fault_injection_enabled":false},"engine_error":null}`)
 }
 
 func TestCommands(t *testing.T) {
@@ -409,14 +409,14 @@ func TestEngineUnavailable(t *testing.T) {
 }
 
 func TestIncompatibleEngineRefused(t *testing.T) {
-	e := setup(t, setupOpts{apiVersion: "2.1.0"})
+	e := setup(t, setupOpts{apiVersion: "0.2.1"})
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		code, b := do(t, "GET", e.srv.URL+"/api/status", "")
 		if code != 503 || errCode(t, b) != "engine_unavailable" {
 			t.Fatalf("%d %s", code, b)
 		}
-		if strings.Contains(string(b), "2.1.0") {
+		if strings.Contains(string(b), "0.2.1") {
 			break
 		}
 		if time.Now().After(deadline) {

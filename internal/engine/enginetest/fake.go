@@ -58,7 +58,7 @@ func New(t testing.TB, h HandlerFunc) *Engine {
 	}
 	e := &Engine{
 		Info: &enginev1.EngineInfo{
-			ApiVersion: "1.0.0", EngineVersion: "0.2.0", McuProtocolVersion: 1, PluginApiVersion: "1",
+			ApiVersion: "0.1.4", EngineVersion: "0.2.0", McuProtocolVersion: 1, PluginApiVersion: "1",
 		},
 		Initial: &enginev1.Telemetry{Seq: 1, State: enginev1.RobotState_ROBOT_STATE_DISABLED, Mcu: &enginev1.McuTelemetry{}},
 		handler: h,
