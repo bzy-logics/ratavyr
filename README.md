@@ -135,10 +135,11 @@ gen/                 generated gRPC bindings (committed, do not edit)
 
 ## Engine contract and generated code
 
-Compatibility: **engine-api 1.x** (`motioncore.engine.v1`). The contract is
-pinned in [`contract.lock`](contract.lock): source repo, tag
-(`engine-api/v1.2.0`, adds home-all plans and collision checking; not yet tagged), commit, proto path and its sha256. No copy of the proto is
-kept in this repo.
+Compatibility: **engine-api 0.1.x** (`motioncore.engine.v1`). While pre-1.0,
+an engine is accepted only with the same `0.MINOR`: patch releases are
+additive, minor releases may break clients. The contract is pinned in
+[`contract.lock`](contract.lock): source repo, tag (`engine-api/v0.1.4`),
+commit, proto path and its sha256. No copy of the proto is kept in this repo.
 
 ```sh
 scripts/generate.sh          # regenerate gen/
@@ -152,12 +153,12 @@ the sha256, writes it to `.contract/` (gitignored) and runs
 `protoc-gen-go` and `protoc-gen-go-grpc` are pinned in `go.mod` via the
 `tool` directive and run with `go tool`; nothing needs to be installed.
 
-To move to a newer contract (e.g. `engine-api/v1.1.0`): fetch the tag in the
+To move to a newer contract (e.g. `engine-api/v0.1.5`): fetch the tag in the
 motioncore clone, update `tag`, `commit` and `sha256` in `contract.lock`
 (`git -C ../motioncore show <tag>:<path> | sha256sum`), run
 `scripts/generate.sh`, then map any new fields in `internal/api/rest` and
-`docs/rest-api.md`. A new major version (`motioncore.engine.v2`) is a
-separate package and requires code changes.
+`docs/rest-api.md`. A new minor version (e.g. `0.2.0`) may break clients:
+also update `SupportedAPIMinor` in `internal/engine/client.go`.
 
 ## Known limitations and engine dependencies
 

@@ -149,7 +149,7 @@ any. Slow clients are disconnected (close code 1013).
 
 ```jsonc
 // EngineInfo
-{"api_version": "1.0.0", "engine_version": "0.2.0", "mcu_protocol_version": 1,
+{"api_version": "0.1.4", "engine_version": "0.2.0", "mcu_protocol_version": 1,
  "plugin_api_version": "1", "fault_injection_enabled": false}
 
 // Telemetry
@@ -169,7 +169,7 @@ any. Slow clients are disconnected (close code 1013).
   },
   "axes": [{"id": "j1", "homed": true, "enabled": true, "commanded_position": 45.0,
             "measured_position": 44.98, "velocity": 0.0, "endstop": false,
-            "homing": false}]        // homing: this axis is searching for its switch (engine-api >= 1.2)
+            "homing": false}]        // homing: this axis is searching for its switch (engine-api >= 0.1.4)
 }
 // fault codes: communication_lost queue_underrun segment_late limit_hit soft_limit
 //              homing_failed mcu_fault plugin_failed emergency_stop
@@ -193,7 +193,7 @@ any. Slow clients are disconnected (close code 1013).
       "rotation_deg": [0.0, 0.0, 0.0],      // fixed roll, pitch, yaw (about X, Y, Z, in that order)
       "axis": [0.0, 0.0, 1.0],              // unit rotation axis / slide direction in the joint frame
       "tip_mm": [200.0, 0.0, 0.0],          // or null: end of this joint's link (e.g. tool flange), joint frame
-      "radius_mm": 20.0                     // or null: link thickness of the collision model (engine-api >= 1.2)
+      "radius_mm": 20.0                     // or null: link thickness of the collision model (engine-api >= 0.1.4)
     }
   }],
   "home_all": {                             // or null (engine-api < 1.2): what the home_all command does
@@ -226,7 +226,7 @@ any. Slow clients are disconnected (close code 1013).
 
 ## Clarifications
 
-* **Unknown enum values** (from a newer 1.x engine) are reported as `"unknown"`;
+* **Unknown enum values** (from a newer engine with the same `0.MINOR`) are reported as `"unknown"`;
   `*_UNSPECIFIED` as `"unspecified"`. Clients must tolerate both.
 * **Firmware errors:** `POST /api/firmware/flashes` without `"confirm": true` →
   400 `bad_request` (checked before the engine is contacted); unknown job →
@@ -243,8 +243,8 @@ any. Slow clients are disconnected (close code 1013).
   revolute, mm for prismatic). Either every axis has `geometry` or none has.
   It describes the machine for display; it does not enable coordinated moves.
 * **`engine_error`** in `/api/info` explains why the engine is not
-  connected, e.g. `incompatible engine api_version "2.0.0" (this server
-  requires 1.x)` or the last connection error; `null` while connected.
+  connected, e.g. `incompatible engine api_version "0.2.0" (this server
+  requires 0.1.x)` or the last connection error; `null` while connected.
 * **Firmware verification** (comparing the running MCU firmware with an
   artifact) is a CLI-only engine feature (`motioncore firmware verify`); the
   engine API has no RPC for it yet, so this server cannot offer it.

@@ -297,7 +297,7 @@ func TestAuditRecordsCommandsAndRejections(t *testing.T) {
 }
 
 func TestInfoExplainsIncompatibleEngine(t *testing.T) {
-	e := setup(t, setupOpts{apiVersion: "2.0.0"})
+	e := setup(t, setupOpts{apiVersion: "1.2.0"})
 	var info struct {
 		Engine      any     `json:"engine"`
 		EngineError *string `json:"engine_error"`
@@ -309,7 +309,7 @@ func TestInfoExplainsIncompatibleEngine(t *testing.T) {
 			break
 		}
 	}
-	if info.Engine != nil || info.EngineError == nil || !strings.Contains(*info.EngineError, `"2.0.0"`) {
+	if info.Engine != nil || info.EngineError == nil || !strings.Contains(*info.EngineError, `"1.2.0"`) {
 		t.Fatalf("info: engine=%v error=%v", info.Engine, info.EngineError)
 	}
 }

@@ -33,7 +33,7 @@ No. The engine and its `motioncore` CLI work on their own. Use ratavyr when you 
 
 | Peer | Requirement |
 |---|---|
-| motioncore engine | engine-api **1.x** (`api_version` major must be 1); checked at every connect |
+| motioncore engine | engine-api **0.1.x** (same `0.MINOR`; patch releases are additive); checked at every connect |
 | Clients | REST API **v1**, specified in [`docs/rest-api.md`](https://github.com/bzy-logics/ratavyr/blob/main/docs/rest-api.md) |
 
 ## Next

@@ -1,13 +1,15 @@
-// MotionCore engine control API, version 1.
+// MotionCore engine control API (proto package motioncore.engine.v1).
 //
 // Published and versioned by the `motioncore` repository (crate
 // `motioncore-engine-api`). Clients generate bindings from a *tagged release*
 // of this file (git tag `engine-api/vX.Y.Z`); never copy and edit it.
 //
-// Compatibility rules for v1:
-//   * Only additive changes (new fields, messages, RPCs, enum values).
+// Versioning while MotionCore is pre-1.0 (API_VERSION 0.MINOR.PATCH):
+//   * PATCH: additive, compatible changes (new fields, messages, RPCs, enum values).
+//   * MINOR: breaking changes and major features. Clients accept an engine
+//     with the same 0.MINOR.
 //   * Field numbers are never reused; removed fields are `reserved`.
-//   * Breaking changes require package `motioncore.engine.v2`.
+//   * The `v1` in the package name is the package generation, not the version.
 //
 // Errors are returned as gRPC status codes. The precise MotionCore error code
 // is sent in the trailing metadata key `motioncore-error-code`:
@@ -494,7 +496,7 @@ func (*GetInfoRequest) Descriptor() ([]byte, []int) {
 
 type EngineInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Semantic version of this API contract, e.g. "1.0.0".
+	// Semantic version of this API contract, e.g. "0.1.4".
 	ApiVersion    string `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
 	EngineVersion string `protobuf:"bytes,2,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"`
 	// MCU wire protocol version spoken by this engine.
@@ -928,11 +930,11 @@ type AxisTelemetry struct {
 	Homed             bool                   `protobuf:"varint,2,opt,name=homed,proto3" json:"homed,omitempty"`
 	Enabled           bool                   `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	CommandedPosition float64                `protobuf:"fixed64,4,opt,name=commanded_position,json=commandedPosition,proto3" json:"commanded_position,omitempty"`
-	// From the MCU step counter (no encoder feedback in v1.0).
+	// From the MCU step counter (no encoder feedback yet).
 	MeasuredPosition float64 `protobuf:"fixed64,5,opt,name=measured_position,json=measuredPosition,proto3" json:"measured_position,omitempty"`
 	Velocity         float64 `protobuf:"fixed64,6,opt,name=velocity,proto3" json:"velocity,omitempty"`
 	Endstop          bool    `protobuf:"varint,7,opt,name=endstop,proto3" json:"endstop,omitempty"`
-	// True while this axis is homing (alone or as part of HomeAll). Added in 1.2.0.
+	// True while this axis is homing (alone or as part of HomeAll). Added in 0.1.4.
 	Homing        bool `protobuf:"varint,8,opt,name=homing,proto3" json:"homing,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1066,11 +1068,11 @@ type RobotConfig struct {
 	Profile string                 `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	Axes    []*AxisConfig          `protobuf:"bytes,3,rep,name=axes,proto3" json:"axes,omitempty"`
 	Mcus    []*McuConfig           `protobuf:"bytes,4,rep,name=mcus,proto3" json:"mcus,omitempty"`
-	// How HomeAll proceeds. Added in 1.2.0.
+	// How HomeAll proceeds. Added in 0.1.4.
 	HomeAll *HomeAllPlan `protobuf:"bytes,5,opt,name=home_all,json=homeAll,proto3" json:"home_all,omitempty"`
 	// True when every axis has a link radius: moves that would make the robot
 	// collide with itself or the floor are refused (error code "collision").
-	// Added in 1.2.0.
+	// Added in 0.1.4.
 	CollisionChecking bool `protobuf:"varint,6,opt,name=collision_checking,json=collisionChecking,proto3" json:"collision_checking,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -1350,7 +1352,7 @@ type AxisConfig struct {
 	// Empty when the axis has no endstop.
 	EndstopPin string `protobuf:"bytes,17,opt,name=endstop_pin,json=endstopPin,proto3" json:"endstop_pin,omitempty"`
 	// Kinematic placement of the joint. Unset when the robot profile defines
-	// no geometry (then no axis has it). Added in 1.1.0.
+	// no geometry (then no axis has it). Added in 0.1.3.
 	Geometry      *AxisGeometry `protobuf:"bytes,18,opt,name=geometry,proto3" json:"geometry,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1593,7 +1595,7 @@ type AxisGeometry struct {
 	// End point of this joint's link in its joint frame, mm (e.g. the tool
 	// flange of the last joint). Unset when not configured.
 	TipMm *Vec3 `protobuf:"bytes,5,opt,name=tip_mm,json=tipMm,proto3" json:"tip_mm,omitempty"`
-	// Radius of this joint's link capsules, mm (collision model). Added in 1.2.0.
+	// Radius of this joint's link capsules, mm (collision model). Added in 0.1.4.
 	RadiusMm      *float64 `protobuf:"fixed64,6,opt,name=radius_mm,json=radiusMm,proto3,oneof" json:"radius_mm,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -445,7 +445,7 @@ func TestGeometryIsRelayed(t *testing.T) {
 		}
 	}
 	_, b = s.req("GET", "/api/info", "", "")
-	if !strings.Contains(string(b), `"api_version":"1.2.0"`) {
+	if !strings.Contains(string(b), `"api_version":"0.1.4"`) {
 		t.Fatalf("info: %s", b)
 	}
 }
